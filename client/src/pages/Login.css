@@ -1,0 +1,94 @@
+/* CONTENEUR GLOBAL LOGIN + SIGNIN */
+.auth-container {
+  height: 100vh;
+  width: 100%;
+  background: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* LOGO */
+/* LOGO DANS LOGIN & SIGNIN */
+.auth-logo {
+  font-size: 40px;
+  font-weight: bold;
+  color: #ffbf00;
+  text-decoration: none;
+  margin-bottom: 25px;
+
+  /* Effet légèrement brillant */
+  text-shadow: 0 0 10px rgba(255, 191, 0, 0.45), 
+               0 0 20px rgba(255, 191, 0, 0.25);
+  
+  /* Positionnement */
+  display: block;
+  text-align: center;
+}
+
+
+/* BOITE FORMULAIRE */
+.auth-box {
+  background: #151515;
+  padding: 40px;
+  width: 420px;
+  border-radius: 18px;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(255, 191, 0, 0.25);
+}
+
+.auth-box h2 {
+  color: white;
+  margin-bottom: 25px;
+}
+
+/* INPUT */
+.auth-box input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  background: #222;
+  color: white;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  transition: 0.2s ease;
+}
+
+.auth-box input:focus {
+  border-color: #ffbf00;
+  box-shadow: 0 0 8px rgba(255, 191, 0, 0.4);
+}
+
+/* BOUTON */
+.auth-btn {
+  width: 100%;
+  padding: 12px;
+  background: #ffbf00;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.auth-btn:hover {
+  background: #e0aa00;
+}
+
+/* LIEN LOGIN / SIGNIN */
+.auth-link {
+  margin-top: 15px;
+  color: #ccc;
+}
+
+.auth-link a {
+  color: #ffbf00;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
+}
