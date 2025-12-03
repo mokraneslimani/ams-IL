@@ -2,16 +2,23 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const path = require("path");
-const db = require("./db"); //  Connexion PostgreSQL
+
+// Connexion PostgreSQL (Supabase connection pooling)
+const db = require("./db");
 
 const app = express();
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
+
 // Import des routes
 const userRoutes = require("./routes/userRoutes");
-// Utilisation des routes
+
+// Utilisation des routes API
 app.use("/api/users", userRoutes);
-// ROUTE TEST POUR CONFIRMER QUE TON BACKEND MARCHE
+
+// Route test backend + connexion BDD
 app.get("/api/test", async (req, res) => {
   try {
     const result = await db.query("SELECT NOW()");
@@ -29,8 +36,8 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../client/build/index.html"));
 });
 
-//  Démarrer le serveur
+// Lancer le serveur
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(` Serveur lancé sur http://localhost:${PORT}`);
+  console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
 });
