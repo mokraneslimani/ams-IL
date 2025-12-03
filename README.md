@@ -1,3 +1,210 @@
-# ams-IL
+README – Backend du projet CoWatch (Projet IL – Semestre 5)
+1. Présentation du projet
 
-azul dinna amek tettilim cv chuya 
+Ce projet consiste à développer une plateforme permettant à plusieurs utilisateurs de regarder des vidéos ensemble en temps réel, de discuter via un chat et de gérer une playlist collaborative.
+Ce document décrit uniquement la partie backend mise en place : serveur Node.js, connexion à PostgreSQL, configuration, installation et tests.
+
+2. Prérequis
+
+Avant d’installer le projet, les outils suivants doivent être installés :
+
+Node.js (version 18 ou supérieure)
+Téléchargement : https://nodejs.org
+
+PostgreSQL + pgAdmin
+Téléchargement : https://www.postgresql.org/download/
+
+3. Installation de la base de données PostgreSQL
+
+Ouvrir pgAdmin.
+
+Se connecter au serveur PostgreSQL.
+
+Dans le panneau de gauche : clic droit sur « Databases » → « Create » → « Database ».
+
+Nommer la base : cowatch
+
+Valider.
+
+3.1 Création des tables
+
+Dans pgAdmin :
+
+Sélectionner la base cowatch.
+
+Clic droit → Query Tool.
+
+Copier-coller le script SQL suivant :
+------------------------------------------------------------
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(120) UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  bio TEXT,
+  avatar TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE rooms (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  video_url TEXT,
+  privacy VARCHAR(20) DEFAULT 'public',
+  owner_id INTEGER REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+------------------------------------------------------
+Exécuter la requête avec le bouton Run.
+
+4. Installation du backend
+4.1 Se placer dans le dossier server
+cd projet_IL/server
+
+4.2 Initialiser le projet Node.js
+npm init -y
+
+4.3 Installation des dépendances
+npm install express cors pg bcryptjs jsonwebtoken dotenv nodemon
+
+5. Configuration du fichier .env
+
+Créer un fichier nommé .env dans :
+projet_IL/server/.env
+
+Contenu :
+-------------------------------------------------------
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=mot_de_passe_postgres
+DB_NAME=cowatch
+DB_PORT=5432
+PORT=5000
+JWT_SECRET=secret_pour_jwt
+-----------------------------------------------------
+6. Fichier de connexion à PostgreSQL (db.js)
+
+Créer un fichier db.js dans le dossier server :
+-----------------------------------------------------------------
+const { Pool } = require("pg");
+require("dotenv").config();
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+});
+
+pool.connect()
+  .then(() => console.log("Connecté à PostgreSQL !"))
+  .catch(err => console.error("Erreur de connexion PostgreSQL :", err));
+
+module.exports = pool;
+----------------------------------------------------------------------------
+7. Serveur Node.js (server.js)
+
+Créer le fichier server.js dans le dossier server :
+-----------------------------------------------------------------
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const db = require("./db");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Route de test
+app.get("/api/test", async (req, res) => {
+  try {
+    const result = await db.query("SELECT NOW()");
+    res.json({ message: "Backend OK", time: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error });
+  }
+});
+
+app.listen(process.env.PORT, () => {
+  console.log("Serveur démarré sur http://localhost:" + process.env.PORT);
+});
+----------------------------------------------------------------------------------
+8. Lancer le serveur
+Méthode classique
+node server.js
+
+Avec nodemon (redémarrage automatique)
+
+Ajouter dans package.json :
+--------------------------------------
+"scripts": {
+  "dev": "nodemon server.js"
+}
+------------------------------
+
+Lancer :
+
+npm run dev
+
+9. Tester le backend
+
+Ouvrir un navigateur et entrer :
+
+http://localhost:5000/api/test
+
+
+Si la configuration est correcte, la réponse suivante doit apparaître :
+
+{
+  "message": "Backend OK",
+  "time": {"now": "..."}
+}
+
+
+Cela signifie que :
+
+Node.js fonctionne
+
+La route Express fonctionne
+
+La connexion PostgreSQL fonctionne
+
+10. Structure actuelle du backend
+server/
+ ├── controllers/      (vide pour l’instant)
+ ├── models/           (vide pour l’instant)
+ ├── routes/           (vide pour l’instant)
+ ├── db.js             Connexion PostgreSQL
+ ├── server.js         Serveur Node.js
+ ├── .env              Variables d’environnement
+ ├── package.json
+ └── package-lock.json
+
+11. Commandes récapitulatives
+Installation des dépendances
+npm install
+
+Lancer le serveur
+npm run dev
+
+Lancer sans nodemon
+node server.js
+
+Réinitialiser les modules Node
+rm -rf node_modules
+npm install
+
+12. État d’avancement
+
+Serveur Node.js opérationnel
+
+Connexion PostgreSQL fonctionnelle
+
+Première route API opérationnelle
+
+Communication navigateur ↔ backend validée
+
+Le backend est maintenant prêt à recevoir les futures fonctionnalités : gestion des utilisateurs, gestion des salons, chat, synchronisation vidéo, etc.

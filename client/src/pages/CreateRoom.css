@@ -1,0 +1,69 @@
+.create-room-container {
+  height: 100vh;
+  background: #0d0d0d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.create-room-box {
+  background: white;
+  padding: 30px;
+  width: 360px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0px 10px 30px rgba(0,0,0,0.2);
+}
+
+.create-room-box h2 {
+  margin-bottom: 25px;
+}
+
+.link-box {
+  display: flex;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.link-box input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.link-box button {
+  background: #4a7dff;
+  border: none;
+  color: white;
+  padding: 10px 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.social-icons {
+  font-size: 26px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 15px 0;
+  color: #555;
+}
+
+.qr-box {
+  margin: 15px 0;
+}
+
+.start-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: #ff5a5a;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  font-weight: bold;
+}

@@ -1,0 +1,103 @@
+.profile-page {
+  background: #0d0d0d;
+  color: white;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+/* HEADER */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 25px;
+  background: #111;
+  border-bottom: 1px solid #222;
+}
+
+.profile-header h2 {
+  flex: 1;
+  text-align: center;
+  font-size: 22px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #ffbf00;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* PROFILE PICTURE */
+.profile-picture-container {
+  display: flex;
+  justify-content: center;
+  margin-top: -30px;
+}
+
+.profile-picture {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 6px solid #111;
+}
+
+/* NAVIGATION */
+.profile-nav {
+  display: flex;
+  justify-content: center;
+  gap: 35px;
+  margin: 20px 0;
+  border-bottom: 1px solid #222;
+  padding-bottom: 10px;
+}
+
+.profile-nav a {
+  color: #ccc;
+  cursor: pointer;
+  padding-bottom: 6px;
+}
+
+.profile-nav .active {
+  color: #ffbf00;
+  border-bottom: 2px solid #ffbf00;
+}
+
+/* MAIN CONTENT */
+.profile-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  padding: 20px 60px;
+}
+
+/* CARDS */
+.card {
+  background: #151515;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #222;
+}
+
+.card h3 {
+  color: #ffbf00;
+  margin-bottom: 12px;
+}
+
+/* STATS GRID */
+.stats-container {
+  display: flex;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.stat h2 {
+  margin: 0;
+  color: #ffbf00;
+}
+
+/* ABOUT CARD */
+.about-card {
+  grid-column: span 2;
+}
