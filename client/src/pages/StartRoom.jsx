@@ -1,125 +1,255 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./StartRoom.css";
+
+const DEFAULT_AVATAR =
+  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 
 export default function StartRoom() {
   const navigate = useNavigate();
 
-  const [roomName, setRoomName] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
-  const [privacy, setPrivacy] = useState("private");
+  // ==========================
+  // 1. ÉTATS INITIAUX (UI)
+  // ==========================
 
-  const friends = [
-    { id: 1, name: "Ami 1", img: "https://i.pravatar.cc/50?img=1" },
-    { id: 2, name: "Ami 2", img: "https://i.pravatar.cc/50?img=2" },
-    { id: 3, name: "Ami 3", img: "https://i.pravatar.cc/50?img=3" },
-    { id: 4, name: "Ami 4", img: "https://i.pravatar.cc/50?img=4" },
-    { id: 5, name: "Ami 5", img: "https://i.pravatar.cc/50?img=5" },
-    { id: 6, name: "Ami 6", img: "https://i.pravatar.cc/50?img=6" },
-    { id: 7, name: "Ami 7", img: "https://i.pravatar.cc/50?img=7" },
-    { id: 8, name: "Ami 8", img: "https://i.pravatar.cc/50?img=8" },
-    { id: 9, name: "Ami 9", img: "https://i.pravatar.cc/50?img=9" },
-    { id: 10, name: "Ami 10", img: "https://i.pravatar.cc/50?img=10" },
-    { id: 11, name: "Ami 11", img: "https://i.pravatar.cc/50?img=11" },
-    { id: 12, name: "Ami 12", img: "https://i.pravatar.cc/50?img=12" },
-  ];
+  // Profil de l’utilisateur connecté
+  const [profile, setProfile] = useState({
+    username: "mon_pseudo",   // ex: "achour"
+    fullName: "Nom Prénom",
+    avatar: DEFAULT_AVATAR,
+  });
 
-  // -------------------------
-  //    REDIRECTION BOUTON
-  // -------------------------
+  // Contenu du formulaire Start Room
+  const [roomConfig, setRoomConfig] = useState({
+    roomName: "",
+    mediaUrl: "",
+    privacy: "private", // "private" | "public"
+  });
+
+  // Menu de gauche / liens de contexte
+  const [sideMenu, setSideMenu] = useState([
+    { id: "profile", label: "Profil", path: "/profile" },
+    { id: "settings", label: "Paramètres", path: "/settings" }, // plus tard
+    { id: "playlist", label: "Playlist", path: "/playlist" },   // plus tard
+    { id: "addFriend", label: "Ajouter un ami", path: "/friends" },
+  ]);
+
+  // Contrôles de la room (caméra, micro, partage…)
+  const [controls, setControls] = useState([
+    { id: "camera", label: "Caméra", enabled: true },
+    { id: "micro", label: "Micro", enabled: true },
+    { id: "screen", label: "Partage d'écran", enabled: false },
+  ]);
+
+  // Liste des amis à inviter
+  const [friends, setFriends] = useState([]);
+  const [selectedFriends, setSelectedFriends] = useState([]);
+
+  // États techniques (chargement / erreurs)
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // =====================================
+  // 2. CHARGEMENT INITIAL (future API)
+  // =====================================
+  useEffect(() => {
+    // 👉 Plus tard, tu pourras récupérer tout ça depuis le serveur.
+    // Exemple :
+    //
+    // setLoading(true);
+    // fetch("http://localhost:5000/api/start-room-ui")
+    //   .then(res => res.json())
+    //   .then(data => {
+    //     setProfile(data.profile);
+    //     setRoomConfig(data.defaultRoomConfig);
+    //     setSideMenu(data.sideMenu);
+    //     setControls(data.controls);
+    //     setFriends(data.friends);
+    //   })
+    //   .catch(err => setErrorMsg(err.message))
+    //   .finally(() => setLoading(false));
+    //
+    // Pour l’instant, on met juste une petite liste d’amis de TEST :
+    const fakeFriends = [
+      { id: 1, name: "Alice", avatar: DEFAULT_AVATAR },
+      { id: 2, name: "Samir", avatar: DEFAULT_AVATAR },
+      { id: 3, name: "Lina", avatar: DEFAULT_AVATAR },
+    ];
+    setFriends(fakeFriends);
+  }, []);
+
+  // =====================================
+  // 3. HANDLERS DE L’UI
+  // =====================================
+
+  // Changer un champ du formulaire
+  const handleRoomChange = (field, value) => {
+    setRoomConfig((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Activer / désactiver un contrôle (caméra, micro, etc.)
+  const toggleControl = (id) => {
+    setControls((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, enabled: !c.enabled } : c
+      )
+    );
+  };
+
+  // Sélection d’un ami
+  const toggleFriend = (id) => {
+    setSelectedFriends((prev) =>
+      prev.includes(id)
+        ? prev.filter((f) => f !== id)
+        : [...prev, id]
+    );
+  };
+
+  // Créer la room
   const handleCreateRoom = () => {
-    if (!roomName || !mediaUrl)
+    if (!roomConfig.roomName || !roomConfig.mediaUrl) {
       return alert("Remplis tous les champs !");
+    }
 
-    // Redirection vers CreateRoom.jsx
+    // 👉 Plus tard : envoi de roomConfig + selectedFriends au serveur
+    // fetch("http://localhost:5000/api/rooms", {...})
+
     navigate("/create-room");
   };
 
+  // =====================================
+  // 4. RENDU
+  // =====================================
+
+  if (loading) {
+    return <div className="start-room-page">Chargement...</div>;
+  }
+
+  if (errorMsg) {
+    return <div className="start-room-page">Erreur : {errorMsg}</div>;
+  }
+
   return (
     <div className="start-room-page">
-
-      {/* Retour */}
+      {/* Barre de retour */}
       <div className="top-bar">
         <Link to="/" className="back-btn">← Accueil</Link>
       </div>
 
-      {/* Header */}
+      {/* Header profil */}
       <div className="profile-header">
-        <h2 className="username">@john_doe</h2>
-
+        <h2 className="username">@{profile.username}</h2>
         <div className="avatar-container">
           <img
-            src="https://cdn-icons-png.flaticon.com/512/847/847969.png"
+            src={profile.avatar || DEFAULT_AVATAR}
             alt="avatar"
             className="profile-avatar"
           />
         </div>
       </div>
 
-      {/* Onglets */}
+      {/* Onglets principaux */}
       <div className="profile-tabs">
         <Link to="/profile" className="tab">Profil</Link>
         <button className="tab active">Start Room</button>
         <Link to="/friends" className="tab">Amis</Link>
-        <Link to="/notif" className="tab">Notif</Link>
+        <Link to="/notifications" className="tab">Notif</Link>
       </div>
 
-      {/* Contenu */}
-      <div className="start-room-content">
+      {/* Layout principal */}
+      <div className="start-room-layout">
+        {/* Colonne gauche : menu + contrôles */}
+        <aside className="left-column card">
+          <h3>Navigation</h3>
+          <ul className="side-menu">
+            {sideMenu.map((item) => (
+              <li key={item.id}>
+                {item.path ? (
+                  <Link to={item.path}>{item.label}</Link>
+                ) : (
+                  <span>{item.label}</span>
+                )}
+              </li>
+            ))}
+          </ul>
 
-        {/* Formulaire */}
-        <div className="card form-card">
-          <h3>Start Room</h3>
+          <h3>Contrôles</h3>
+          <div className="controls-list">
+            {controls.map((ctrl) => (
+              <button
+                key={ctrl.id}
+                type="button"
+                className={
+                  ctrl.enabled ? "control-btn active" : "control-btn"
+                }
+                onClick={() => toggleControl(ctrl.id)}
+              >
+                {ctrl.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Colonne centre : formulaire de création de room */}
+        <section className="center-column card form-card">
+          <h3>Créer une nouvelle room</h3>
 
           <label>Nom de la room</label>
           <input
             type="text"
             placeholder="Ma Room de visionnage"
-            value={roomName}
-            onChange={(e) => setRoomName(e.target.value)}
+            value={roomConfig.roomName}
+            onChange={(e) => handleRoomChange("roomName", e.target.value)}
           />
 
           <label>Lien média (YouTube, film, stream…)</label>
           <input
             type="text"
             placeholder="https://..."
-            value={mediaUrl}
-            onChange={(e) => setMediaUrl(e.target.value)}
+            value={roomConfig.mediaUrl}
+            onChange={(e) => handleRoomChange("mediaUrl", e.target.value)}
           />
 
           <label>Confidentialité</label>
           <select
-            value={privacy}
-            onChange={(e) => setPrivacy(e.target.value)}
+            value={roomConfig.privacy}
+            onChange={(e) => handleRoomChange("privacy", e.target.value)}
           >
             <option value="private">Privée (invitation)</option>
             <option value="public">Publique</option>
           </select>
 
-          {/* --- BOUTON --- */}
           <button className="btn-create" onClick={handleCreateRoom}>
             Créer la room
           </button>
-        </div>
+        </section>
 
-        {/* Liste amis */}
-        <div className="card friends-card">
+        {/* Colonne droite : amis */}
+        <section className="right-column card friends-card">
           <div className="friends-header">
             <h3>Inviter des amis</h3>
-            <span className="selected-count">0 sélectionné(s)</span>
+            <span className="selected-count">
+              {selectedFriends.length} sélectionné(s)
+            </span>
           </div>
 
           <div className="friends-grid">
             {friends.map((f) => (
               <label key={f.id} className="friend-item">
-                <input type="checkbox" />
-                <img src={f.img} alt={f.name} />
+                <input
+                  type="checkbox"
+                  checked={selectedFriends.includes(f.id)}
+                  onChange={() => toggleFriend(f.id)}
+                />
+                <img src={f.avatar || DEFAULT_AVATAR} alt={f.name} />
                 <span>{f.name}</span>
               </label>
             ))}
           </div>
-        </div>
-
+        </section>
       </div>
     </div>
   );
