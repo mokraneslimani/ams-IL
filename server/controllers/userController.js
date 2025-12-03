@@ -37,3 +37,61 @@ exports.addUser = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // 1) vérifier si l'utilisateur existe
+    const result = await User.getUserByEmail(email);
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: "Email incorrect" });
+    }
+
+    const user = result.rows[0];
+
+    // 2) vérifier le mot de passe (en clair pour l'instant)
+    if (user.password !== password) {
+      return res.status(400).json({ message: "Mot de passe incorrect" });
+    }
+
+    // 3) envoyer un faux token + user
+    const fakeToken = "123456789TOKEN";
+
+    res.json({ token: fakeToken, user });
+  } catch (err) {
+    console.error("Erreur login :", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+// ===============================
+//   REGISTER USER
+// ===============================
+exports.registerUser = async (req, res) => {
+  const { name, email, password } = req.body; // name = username
+
+  try {
+    // Vérifier si email existe déjà
+    const existing = await User.getUserByEmail(email);
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ message: "Email déjà utilisé" });
+    }
+
+    // Créer l'utilisateur
+    const result = await User.createUser(name, email, password);
+
+    const user = result.rows[0];
+
+    // Token (fake)
+    const fakeToken = "NEW_USER_TOKEN";
+
+    res.status(201).json({ token: fakeToken, user });
+
+  } catch (err) {
+    console.error("Erreur register:", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};

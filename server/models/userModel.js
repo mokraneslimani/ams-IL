@@ -17,3 +17,16 @@ exports.createUser = (username, email, password) => {
         [username, email, password]
     );
 };
+
+exports.getUserByEmail = (email) => {
+  return db.query("SELECT * FROM users WHERE email = $1", [email]);
+};
+
+exports.createUser = (username, email, password) => {
+  return db.query(
+    `INSERT INTO users (username, email, password, bio, avatar)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [username, email, password, "", "avatar.png"]
+  );
+  };

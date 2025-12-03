@@ -11,4 +11,10 @@ router.get("/:id", userController.getUser);
 // Créer un user
 router.post("/", userController.addUser);
 
+router.post("/login", userController.loginUser);
+
+// CREATE USER (OPTIONNEL)
+router.post("/register", userController.registerUser);
+
 module.exports = router;
+
