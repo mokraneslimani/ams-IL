@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Socket.io</title>
+</head>
+<body>
+
+<h2>Test Socket.io - Chat Temps Réel</h2>
+
+<label>Message :</label>
+<input id="msg" type="text">
+<button onclick="sendMessage()">Envoyer</button>
+
+<div id="logs"></div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io("http://localhost:5000");
+
+  const logs = document.getElementById("logs");
+
+  function log(msg) {
+    logs.innerHTML += "<p>" + msg + "</p>";
+  }
+
+  socket.on("connect", () => {
+    log("Connecté au serveur : " + socket.id);
+
+    // rejoindre la room 12345
+    socket.emit("join_room", "12345");
+  });
+
+  function sendMessage() {
+    const message = document.getElementById("msg").value;
+
+    socket.emit("chat_message", {
+      roomId: "12345",
+      username: "Moi",
+      message: message
+    });
+
+    document.getElementById("msg").value = "";
+  }
+
+  socket.on("chat_message", (data) => {
+    log("Message reçu : " + data.username + " → " + data.message);
+  });
+
+  socket.on("user_joined", (data) => {
+    log("Nouvel utilisateur : " + data.userId);
+  });
+
+</script>
+
+</body>
+</html>
+s

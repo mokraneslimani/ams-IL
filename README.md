@@ -208,3 +208,93 @@ Première route API opérationnelle
 Communication navigateur ↔ backend validée
 
 Le backend est maintenant prêt à recevoir les futures fonctionnalités : gestion des utilisateurs, gestion des salons, chat, synchronisation vidéo, etc.
+
+Synchronisation Temps Réel (Socket.io)
+1. Mise en place du serveur WebSocket
+
+Configuration d’un serveur WebSocket avec Socket.io dans server.js.
+Ajout du serveur HTTP, activation de CORS, et chargement du module socket.js.
+
+2. Création du fichier socket.js
+
+Le module gère :
+
+Connexion des utilisateurs
+
+Détection des connexions et déconnexions.
+
+Rejoindre une room
+
+Gestion de l’événement join_room, mise à jour de la liste des participants et attribution d’un host.
+
+Synchronisation vidéo
+
+Événements supportés :
+
+video_play
+
+video_pause
+
+video_seek
+
+Diffusion automatique à tous les utilisateurs de la room.
+
+Synchronisation avancée
+
+Événements :
+
+video_sync_request
+
+video_sync_response
+
+Permet la synchronisation d’un nouvel utilisateur avec l’état courant de la vidéo.
+
+Chat en temps réel
+
+Événement :
+
+chat_message
+
+Diffusion des messages instantanément dans la room.
+
+Gestion du host
+
+Le premier utilisateur devient host.
+Si le host quitte la room, un nouveau host est sélectionné automatiquement.
+
+3. Test du WebSocket avec un client Node
+
+Création d’un fichier testSocket.js permettant de tester le WebSocket sans interface graphique.
+
+Le client :
+
+se connecte au serveur,
+
+rejoint une room,
+
+envoie un message,
+
+reçoit les événements du serveur.
+
+Résultat obtenu :
+
+Client connecté : xxxxx
+Reçu : { roomId: '12345', username: 'ServerTest', message: 'Hello depuis node !' }
+
+4. Résumé du travail réalisé aujourd’hui
+
+Mise en place du serveur Socket.io
+
+Création de socket.js
+
+Gestion complète des rooms
+
+Synchronisation vidéo (play, pause, seek)
+
+Système de host
+
+Gestion des participants
+
+Chat en temps réel
+
+Tests via un client Node (testSocket.js)
