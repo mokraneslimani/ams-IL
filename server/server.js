@@ -17,6 +17,9 @@ const userRoutes = require("./routes/userRoutes");
 
 // Utilisation des routes API
 app.use("/api/users", userRoutes);
+const roomRoutes = require("./routes/roomRoutes");
+app.use("/api/rooms", roomRoutes);
+
 
 // Route test backend + connexion BDD
 app.get("/api/test", async (req, res) => {
