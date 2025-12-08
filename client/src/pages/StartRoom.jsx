@@ -8,68 +8,30 @@ const DEFAULT_AVATAR =
 export default function StartRoom() {
   const navigate = useNavigate();
 
-  // ==========================
-  // 1. ÉTATS INITIAUX (UI)
-  // ==========================
-
-  // Profil de l’utilisateur connecté
+  // Profil (plus tard : appeler l'API /auth/me)
   const [profile, setProfile] = useState({
-    username: "mon_pseudo",   // ex: "achour"
-    fullName: "Nom Prénom",
+    id: 1, // ⚠️ TEMPORAIRE : l'utilisateur connecté aura un vrai ID plus tard
+    username: "mon_pseudo",
     avatar: DEFAULT_AVATAR,
   });
 
-  // Contenu du formulaire Start Room
+  // Formulaire de création de room
   const [roomConfig, setRoomConfig] = useState({
     roomName: "",
     mediaUrl: "",
-    privacy: "private", // "private" | "public"
+    privacy: "private",
   });
 
-  // Menu de gauche / liens de contexte
-  const [sideMenu, setSideMenu] = useState([
-    { id: "profile", label: "Profil", path: "/profile" },
-    { id: "settings", label: "Paramètres", path: "/settings" }, // plus tard
-    { id: "playlist", label: "Playlist", path: "/playlist" },   // plus tard
-    { id: "addFriend", label: "Ajouter un ami", path: "/friends" },
-  ]);
-
-  // Contrôles de la room (caméra, micro, partage…)
-  const [controls, setControls] = useState([
-    { id: "camera", label: "Caméra", enabled: true },
-    { id: "micro", label: "Micro", enabled: true },
-    { id: "screen", label: "Partage d'écran", enabled: false },
-  ]);
-
-  // Liste des amis à inviter
+  // Friends mocks → plus tard API
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
 
-  // États techniques (chargement / erreurs)
+  // UI
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // =====================================
-  // 2. CHARGEMENT INITIAL (future API)
-  // =====================================
   useEffect(() => {
-    // 👉 Plus tard, tu pourras récupérer tout ça depuis le serveur.
-    // Exemple :
-    //
-    // setLoading(true);
-    // fetch("http://localhost:5000/api/start-room-ui")
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     setProfile(data.profile);
-    //     setRoomConfig(data.defaultRoomConfig);
-    //     setSideMenu(data.sideMenu);
-    //     setControls(data.controls);
-    //     setFriends(data.friends);
-    //   })
-    //   .catch(err => setErrorMsg(err.message))
-    //   .finally(() => setLoading(false));
-    //
-    // Pour l’instant, on met juste une petite liste d’amis de TEST :
+    // Fake friends pour test
     const fakeFriends = [
       { id: 1, name: "Alice", avatar: DEFAULT_AVATAR },
       { id: 2, name: "Samir", avatar: DEFAULT_AVATAR },
@@ -78,80 +40,81 @@ export default function StartRoom() {
     setFriends(fakeFriends);
   }, []);
 
-  // =====================================
-  // 3. HANDLERS DE L’UI
-  // =====================================
-
-  // Changer un champ du formulaire
+  // Gestion des inputs
   const handleRoomChange = (field, value) => {
-    setRoomConfig((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setRoomConfig((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Activer / désactiver un contrôle (caméra, micro, etc.)
-  const toggleControl = (id) => {
-    setControls((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, enabled: !c.enabled } : c
-      )
-    );
-  };
-
-  // Sélection d’un ami
+  // Sélection amis
   const toggleFriend = (id) => {
     setSelectedFriends((prev) =>
       prev.includes(id)
-        ? prev.filter((f) => f !== id)
+        ? prev.filter((x) => x !== id)
         : [...prev, id]
     );
   };
 
-  // Créer la room
-  const handleCreateRoom = () => {
+  // ================================
+  // 🚀 Créer une room (appel backend)
+  // ================================
+  const handleCreateRoom = async () => {
     if (!roomConfig.roomName || !roomConfig.mediaUrl) {
       return alert("Remplis tous les champs !");
     }
 
-    // 👉 Plus tard : envoi de roomConfig + selectedFriends au serveur
-    // fetch("http://localhost:5000/api/rooms", {...})
+    setLoading(true);
 
-    navigate("/create-room");
+    try {
+      const response = await fetch("http://localhost:5000/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: roomConfig.roomName,
+          description: "Room créée depuis StartRoom",
+          video_url: roomConfig.mediaUrl,
+          privacy: roomConfig.privacy,
+          owner_id: profile.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur lors de la création");
+      }
+
+      console.log("ROOM CREATED:", data);
+
+      // Redirection automatique vers la room nouvellement créée
+      navigate(`/room/${data.id}`);
+
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // =====================================
-  // 4. RENDU
-  // =====================================
-
-  if (loading) {
-    return <div className="start-room-page">Chargement...</div>;
-  }
-
-  if (errorMsg) {
-    return <div className="start-room-page">Erreur : {errorMsg}</div>;
-  }
+  // ================================
+  // Rendu
+  // ================================
+  if (loading) return <div className="start-room-page">Création en cours...</div>;
+  if (errorMsg) return <div className="start-room-page">Erreur : {errorMsg}</div>;
 
   return (
     <div className="start-room-page">
-      {/* Barre de retour */}
+
+      {/* HEADER */}
       <div className="top-bar">
         <Link to="/" className="back-btn">← Accueil</Link>
       </div>
 
-      {/* Header profil */}
       <div className="profile-header">
         <h2 className="username">@{profile.username}</h2>
-        <div className="avatar-container">
-          <img
-            src={profile.avatar || DEFAULT_AVATAR}
-            alt="avatar"
-            className="profile-avatar"
-          />
-        </div>
+        <img src={profile.avatar} className="profile-avatar" alt="avatar" />
       </div>
 
-      {/* Onglets principaux */}
       <div className="profile-tabs">
         <Link to="/profile" className="tab">Profil</Link>
         <button className="tab active">Start Room</button>
@@ -159,41 +122,9 @@ export default function StartRoom() {
         <Link to="/notifications" className="tab">Notif</Link>
       </div>
 
-      {/* Layout principal */}
       <div className="start-room-layout">
-        {/* Colonne gauche : menu + contrôles */}
-        <aside className="left-column card">
-          <h3>Navigation</h3>
-          <ul className="side-menu">
-            {sideMenu.map((item) => (
-              <li key={item.id}>
-                {item.path ? (
-                  <Link to={item.path}>{item.label}</Link>
-                ) : (
-                  <span>{item.label}</span>
-                )}
-              </li>
-            ))}
-          </ul>
 
-          <h3>Contrôles</h3>
-          <div className="controls-list">
-            {controls.map((ctrl) => (
-              <button
-                key={ctrl.id}
-                type="button"
-                className={
-                  ctrl.enabled ? "control-btn active" : "control-btn"
-                }
-                onClick={() => toggleControl(ctrl.id)}
-              >
-                {ctrl.label}
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        {/* Colonne centre : formulaire de création de room */}
+        {/* FORMULAIRE */}
         <section className="center-column card form-card">
           <h3>Créer une nouvelle room</h3>
 
@@ -205,7 +136,7 @@ export default function StartRoom() {
             onChange={(e) => handleRoomChange("roomName", e.target.value)}
           />
 
-          <label>Lien média (YouTube, film, stream…)</label>
+          <label>Lien média (YouTube, film…)</label>
           <input
             type="text"
             placeholder="https://..."
@@ -218,24 +149,18 @@ export default function StartRoom() {
             value={roomConfig.privacy}
             onChange={(e) => handleRoomChange("privacy", e.target.value)}
           >
-            <option value="private">Privée (invitation)</option>
+            <option value="private">Privée</option>
             <option value="public">Publique</option>
           </select>
 
           <button className="btn-create" onClick={handleCreateRoom}>
-            Créer la room
+            🚀 Créer la room
           </button>
         </section>
 
-        {/* Colonne droite : amis */}
+        {/* LISTE AMIS */}
         <section className="right-column card friends-card">
-          <div className="friends-header">
-            <h3>Inviter des amis</h3>
-            <span className="selected-count">
-              {selectedFriends.length} sélectionné(s)
-            </span>
-          </div>
-
+          <h3>Inviter des amis</h3>
           <div className="friends-grid">
             {friends.map((f) => (
               <label key={f.id} className="friend-item">
@@ -244,12 +169,13 @@ export default function StartRoom() {
                   checked={selectedFriends.includes(f.id)}
                   onChange={() => toggleFriend(f.id)}
                 />
-                <img src={f.avatar || DEFAULT_AVATAR} alt={f.name} />
+                <img src={f.avatar} alt={f.name} />
                 <span>{f.name}</span>
               </label>
             ))}
           </div>
         </section>
+
       </div>
     </div>
   );

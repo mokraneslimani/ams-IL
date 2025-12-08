@@ -1,39 +1,67 @@
-const User = require("../models/userModel");
+const userService = require("../services/userService");
+const authService = require("../services/authService");
 
-// récupérer tous les users
+// ===============================
+//   GET ALL USERS
+// ===============================
 exports.getUsers = async (req, res) => {
-    try {
-        const result = await User.getAllUsers();
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    const users = await userService.getAllUsers();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-// récupérer un user selon ID
+// ===============================
+//   GET USER BY ID
+// ===============================
 exports.getUser = async (req, res) => {
-    try {
-        const result = await User.getUserById(req.params.id);
+  try {
+    const user = await userService.getUserById(req.params.id);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: "Utilisateur introuvable" });
-        }
-
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
     }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-// créer un user
+// ===============================
+//   CREATE USER
+// ===============================
 exports.addUser = async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
+  try {
+    const newUser = await userService.createUser(req.body);
+    res.status(201).json(newUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-        const result = await User.createUser(username, email, password);
+// ===============================
+//   LOGIN USER
+// ===============================
+exports.loginUser = async (req, res) => {
+  try {
+    const result = await authService.loginUser(req.body);
+    res.json(result); // { token, user }
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
 
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// ===============================
+//   REGISTER USER
+// ===============================
+exports.registerUser = async (req, res) => {
+  try {
+    const result = await authService.registerUser(req.body);
+    res.status(201).json(result); // { token, user }
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 };
