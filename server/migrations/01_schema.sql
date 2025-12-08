@@ -15,6 +15,7 @@ CREATE TABLE rooms (
     video_url TEXT,
     privacy VARCHAR(20) DEFAULT 'public',
     owner_id INTEGER REFERENCES users(id),
+     link TEXT UNIQUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

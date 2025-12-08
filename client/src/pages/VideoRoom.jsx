@@ -1,11 +1,69 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import "./VideoRoom.css";
 
-export default function VideoRoom() {
-  const [videoUrl, setVideoUrl] = useState("");
-  const [currentUrl, setCurrentUrl] = useState("");
+/*
+  === APIS PRÉVUES ===
 
-  // Historique (fake pour l'instant)
+  // Profil connecté
+  GET  /api/users/:id
+
+  // Infos de la room (nom, url vidéo, créateur, etc.)
+  GET  /api/rooms/:roomId
+
+  // Historique des vidéos de la room
+  GET  /api/rooms/:roomId/history
+
+  // Participants / amis dans la room
+  GET  /api/rooms/:roomId/participants
+
+  // Envoyer un message dans le chat
+  POST /api/rooms/:roomId/messages
+*/
+
+const DEFAULT_AVATAR =
+  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+
+export default function VideoRoom() {
+  const { roomId } = useParams(); // /room/:roomId
+
+  // -------- Profil / utilisateur courant --------
+  const [profile, setProfile] = useState({
+    username: "mon_pseudo",
+    avatar: DEFAULT_AVATAR,
+  });
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
+
+  // -------- Menu "Mon espace" --------
+  const [menuItems] = useState([
+    { id: "profile", label: "Profil", path: "/profile" },
+    { id: "settings", label: "Paramètres", path: "/settings" }, // plus tard
+    { id: "playlist", label: "Playlist", path: "/playlist" },   // plus tard
+    { id: "addFriend", label: "Ajouter un ami", path: "/friends" },
+  ]);
+
+  // -------- Contrôles (caméra, micro, écran) --------
+  const [controls, setControls] = useState([
+    { id: "camera", label: "Caméra", enabled: true },
+    { id: "micro", label: "Micro", enabled: true },
+    { id: "screen", label: "Partage d'écran", enabled: false },
+  ]);
+
+  // -------- Infos de la room --------
+  const [roomInfo, setRoomInfo] = useState({
+    id: roomId || "room-test",
+    name: "Ma Room de test",
+  });
+
+  // -------- Vidéo courante + input --------
+  const [videoUrlInput, setVideoUrlInput] = useState("");
+  const [currentVideo, setCurrentVideo] = useState({
+    url: "",
+    title: "",
+  });
+
+  // -------- Historique --------
   const [history, setHistory] = useState([
     {
       id: 1,
@@ -27,12 +85,89 @@ export default function VideoRoom() {
     },
   ]);
 
+  // -------- Participants / amis dans la room --------
+  const [participants, setParticipants] = useState([
+    { id: 1, initials: "A", name: "Alice" },
+    { id: 2, initials: "M", name: "Mokrane" },
+    { id: 3, initials: "S", name: "Samira" },
+    { id: 4, initials: "I", name: "Idir" },
+  ]);
+
+  // -------- Chat --------
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, author: "System", text: "Bienvenue dans la room !" },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+
+  // -------- Charger l'utilisateur connecté par ID --------
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const storedId = localStorage.getItem("userId");
+        if (!storedId) {
+          setProfileError("Utilisateur non connecté (userId manquant).");
+          return;
+        }
+
+        const res = await fetch(
+          `http://localhost:5000/api/users/${storedId}`
+        );
+        if (!res.ok) {
+          throw new Error("Impossible de récupérer l'utilisateur connecté");
+        }
+        const user = await res.json();
+
+        setProfile({
+          username: user.username || "user",
+          avatar: user.avatar || DEFAULT_AVATAR,
+        });
+      } catch (err) {
+        setProfileError(err.message);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  // --------- Future intégration API room (plus tard) ---------
+  useEffect(() => {
+    // Exemple plus tard :
+    // async function loadRoom() {
+    //   const res = await fetch(`http://localhost:5000/api/rooms/${roomId}`);
+    //   const data = await res.json();
+    //   setRoomInfo(data.room);
+    //   setCurrentVideo({ url: data.room.mediaUrl, title: data.room.title });
+    //   setHistory(data.history);
+    //   setParticipants(data.participants);
+    // }
+    // loadRoom();
+  }, [roomId]);
+
+  // -------- Handlers --------
+
+  const toggleControl = (id) => {
+    setControls((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, enabled: !c.enabled } : c
+      )
+    );
+  };
+
+  const getEmbedUrl = (url) => {
+    if (!url) return "";
+    return url.replace("watch?v=", "embed/");
+  };
+
   const loadVideo = () => {
-    if (!videoUrl) return;
+    if (!videoUrlInput) return;
 
-    setCurrentUrl(videoUrl);
+    setCurrentVideo({
+      url: videoUrlInput,
+      title: "Nouvelle vidéo",
+    });
 
-    // Ajouter dans l'historique (simple, sans API pour le moment)
     setHistory((prev) => [
       {
         id: Date.now(),
@@ -44,15 +179,32 @@ export default function VideoRoom() {
     ]);
   };
 
+  const sendMessage = () => {
+    if (!chatInput.trim()) return;
+
+    const newMsg = {
+      id: Date.now(),
+      author: profile.username,
+      text: chatInput.trim(),
+    };
+
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInput("");
+  };
+
+  // -------- Rendu --------
   return (
     <div className="room-container">
       {/* HEADER */}
       <header className="room-header">
-        <a href="/" className="logo">
+        <Link to="/" className="logo">
           CoWatch
-        </a>
+        </Link>
 
         <div className="room-header-right">
+          <span className="room-name">
+            Room : <strong>{roomInfo.name}</strong>
+          </span>
           <input
             className="search-input"
             type="text"
@@ -65,29 +217,47 @@ export default function VideoRoom() {
       <div className="room-layout">
         {/* COLONNE GAUCHE – MON ESPACE */}
         <aside className="room-sidebar">
+          <div className="profile-mini">
+            <img
+              src={profile.avatar}
+              alt={profile.username}
+              className="profile-mini-avatar"
+            />
+            <span>
+              {profileLoading
+                ? "Chargement..."
+                : profileError
+                ? "Erreur profil"
+                : `@${profile.username}`}
+            </span>
+          </div>
+
           <h3>Mon espace</h3>
 
           <ul className="sidebar-menu">
-            <li>Profil</li>
-            <li>Paramètres</li>
-            <li>Playlist</li>
-            <li>Ajouter un ami</li>
+            {menuItems.map((item) => (
+              <li key={item.id}>
+                {item.path ? (
+                  <Link to={item.path}>{item.label}</Link>
+                ) : (
+                  <span>{item.label}</span>
+                )}
+              </li>
+            ))}
           </ul>
 
           <div className="sidebar-section">
             <h4>Contrôles</h4>
-            <div className="toggle-row">
-              <span>Caméra</span>
-              <input type="checkbox" />
-            </div>
-            <div className="toggle-row">
-              <span>Micro</span>
-              <input type="checkbox" />
-            </div>
-            <div className="toggle-row">
-              <span>Partage d'écran</span>
-              <input type="checkbox" />
-            </div>
+            {controls.map((ctrl) => (
+              <div key={ctrl.id} className="toggle-row">
+                <span>{ctrl.label}</span>
+                <input
+                  type="checkbox"
+                  checked={ctrl.enabled}
+                  onChange={() => toggleControl(ctrl.id)}
+                />
+              </div>
+            ))}
           </div>
         </aside>
 
@@ -99,17 +269,17 @@ export default function VideoRoom() {
               <input
                 type="text"
                 placeholder="Collez une URL YouTube ici..."
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
+                value={videoUrlInput}
+                onChange={(e) => setVideoUrlInput(e.target.value)}
               />
               <button onClick={loadVideo}>Load Video</button>
             </div>
 
             <div className="video-box">
-              {currentUrl ? (
+              {currentVideo.url ? (
                 <iframe
-                  src={currentUrl.replace("watch?v=", "embed/")}
-                  title="YouTube Video"
+                  src={getEmbedUrl(currentVideo.url)}
+                  title={currentVideo.title || "YouTube Video"}
                   frameBorder="0"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
@@ -143,10 +313,11 @@ export default function VideoRoom() {
           <section className="live-room">
             <h3>Live Room</h3>
             <div className="avatars">
-              <div className="avatar">A</div>
-              <div className="avatar">M</div>
-              <div className="avatar">S</div>
-              <div className="avatar">I</div>
+              {participants.map((p) => (
+                <div key={p.id} className="avatar" title={p.name}>
+                  {p.initials}
+                </div>
+              ))}
             </div>
           </section>
 
@@ -154,12 +325,21 @@ export default function VideoRoom() {
             <h3>Chat</h3>
 
             <div className="chat-messages">
-              <p><strong>System :</strong> Bienvenue dans la room !</p>
+              {chatMessages.map((msg) => (
+                <p key={msg.id}>
+                  <strong>{msg.author} :</strong> {msg.text}
+                </p>
+              ))}
             </div>
 
             <div className="chat-input">
-              <input type="text" placeholder="Écrire un message..." />
-              <button>Envoyer</button>
+              <input
+                type="text"
+                placeholder="Écrire un message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+              />
+              <button onClick={sendMessage}>Envoyer</button>
             </div>
           </section>
         </aside>
