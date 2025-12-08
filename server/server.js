@@ -8,20 +8,28 @@ const db = require("./db");
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// ============================
+// 🔥 CORS FIX (IMPORTANT !)
+// ============================
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  allowedHeaders: ["Content-Type"],
+}));
+app.options("*", cors());
+
+// Body parser
 app.use(express.json());
 
-// Import des routes
+// Import routes
 const userRoutes = require("./routes/userRoutes");
-
-// Utilisation des routes API
-app.use("/api/users", userRoutes);
 const roomRoutes = require("./routes/roomRoutes");
+
+// Use routes
+app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
 
-
-// Route test backend + connexion BDD
+// Route test backend
 app.get("/api/test", async (req, res) => {
   try {
     const result = await db.query("SELECT NOW()");
@@ -32,14 +40,14 @@ app.get("/api/test", async (req, res) => {
   }
 });
 
-// Servir le frontend (si buildé)
+// Serve frontend
 app.use(express.static(path.join(__dirname, "../client/build")));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../client/build/index.html"));
 });
 
-// Lancer le serveur
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
