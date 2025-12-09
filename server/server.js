@@ -5,7 +5,7 @@ const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 
-// Connexion PostgreSQL (Supabase)
+// Connexion PostgreSQL
 const db = require("./db");
 
 const app = express();
@@ -14,25 +14,27 @@ const app = express();
 // CORS Configuration
 // ==========================================
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000", "http://127.0.0.1:5500"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type"],
 }));
 app.options("*", cors());
 
-// JSON Body Parser
+// JSON parser
 app.use(express.json());
 
 // ==========================================
-// Routes API
+// Routes API (À METTRE AVANT REACT)
 // ==========================================
 const userRoutes = require("./routes/userRoutes");
 const roomRoutes = require("./routes/roomRoutes");
+const historyRoutes = require("./routes/historyRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
+app.use("/api/history", historyRoutes);
 
-// Test route
+// Test route API
 app.get("/api/test", async (req, res) => {
   try {
     const result = await db.query("SELECT NOW()");
@@ -44,7 +46,7 @@ app.get("/api/test", async (req, res) => {
 });
 
 // ==========================================
-// Serve React frontend (production build)
+// Serve React frontend (PRODUCTION)
 // ==========================================
 app.use(express.static(path.join(__dirname, "../client/build")));
 
@@ -53,7 +55,7 @@ app.get("*", (req, res) => {
 });
 
 // ==========================================
-// Socket.io Setup
+// SOCKET.IO Setup
 // ==========================================
 const server = http.createServer(app);
 
@@ -61,12 +63,10 @@ const io = new Server(server, {
   cors: {
     origin: ["http://localhost:3000", "http://127.0.0.1:5500"],
     methods: ["GET", "POST"],
-    credentials: true
   }
 });
 
-
-// Load socket logic
+// Charger la logique WebSocket
 const socketHandler = require("./socket");
 socketHandler(io);
 
@@ -74,7 +74,6 @@ socketHandler(io);
 // Start Server
 // ==========================================
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, () => {
-  console.log(`Serveur + WebSocket lancé sur http://localhost:${PORT}`);
+  console.log(`🚀 Serveur + WebSocket lancé sur http://localhost:${PORT}`);
 });
