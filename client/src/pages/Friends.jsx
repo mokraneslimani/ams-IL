@@ -1,24 +1,115 @@
 // src/pages/Friends.jsx
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "./Friends.css";
 
 export default function Friends() {
-  const friends = [
-    { id: 1, name: "Alice", status: "En ligne", lastRoom: "Room - Netflix & Chill" },
-    { id: 2, name: "Samir", status: "Hors ligne", lastRoom: "Room - One Piece" },
-    { id: 3, name: "Lina", status: "En ligne", lastRoom: "Room - BTS Live" },
-  ];
+  const navigate = useNavigate();
+  const [friends, setFriends] = useState([]);
+  const [pendingReceived, setPendingReceived] = useState([]);
+  const [pendingSent, setPendingSent] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [emailInput, setEmailInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const pending = [
-    { id: 4, name: "Marc", since: "Il y a 2 jours" },
-    { id: 5, name: "Emma", since: "Il y a 5 heures" },
-  ];
+  const token = localStorage.getItem("token");
 
-  const suggestions = [
-    { id: 6, name: "Yassine", common: 3 },
-    { id: 7, name: "Chloe", common: 1 },
-  ];
+  const authFetch = async (url, options = {}) => {
+    const headers = options.headers || {};
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
+  const loadFriends = async () => {
+    if (!token) {
+      setError("Non connecté. Merci de vous identifier.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const res = await authFetch("http://localhost:5000/api/friends");
+      if (!res.ok) {
+        throw new Error("Impossible de charger vos amis");
+      }
+      const data = await res.json();
+      setFriends(data.friends || []);
+      setPendingReceived(data.pendingReceived || []);
+      setPendingSent(data.pendingSent || []);
+      setSuggestions(data.suggestions || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFriends();
+  }, []);
+
+  const sendRequest = async (emailOverride) => {
+    const emailToSend = (emailOverride || emailInput).trim();
+    if (!emailToSend) return;
+    try {
+      const res = await authFetch("http://localhost:5000/api/friends/request", {
+        method: "POST",
+        body: JSON.stringify({ email: emailToSend }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erreur lors de l'envoi");
+      setEmailInput("");
+      loadFriends();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const acceptRequest = async (requesterId) => {
+    try {
+      const res = await authFetch(
+        `http://localhost:5000/api/friends/accept/${requesterId}`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erreur lors de l'acceptation");
+      loadFriends();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const deleteFriend = async (friendId) => {
+    try {
+      const res = await authFetch(
+        `http://localhost:5000/api/friends/${friendId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erreur lors de la suppression");
+      loadFriends();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  if (!token) {
+    return (
+      <div className="friends-page">
+        <p>Vous devez être connecté.</p>
+        <button onClick={() => navigate("/login")}>Aller au login</button>
+      </div>
+    );
+  }
 
   return (
     <div className="friends-page">
@@ -36,68 +127,98 @@ export default function Friends() {
         <Link to="/notifications" className="tab-link">Notif</Link>
       </div>
 
-      {/* Contenu principal */}
-      <div className="friends-layout">
-        {/* Colonne gauche : amis */}
-        <section className="card friends-list">
-          <h2>Mes amis</h2>
-          <ul>
-            {friends.map((f) => (
-              <li key={f.id} className="friend-item">
-                <div>
-                  <p className="friend-name">{f.name}</p>
-                  <p className="friend-last-room">{f.lastRoom}</p>
-                </div>
-                <span
-                  className={
-                    f.status === "En ligne" ? "friend-status online" : "friend-status offline"
-                  }
-                >
-                  {f.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {error && <div className="auth-error" style={{ margin: "1rem" }}>{error}</div>}
 
-        {/* Colonne droite : demandes + suggestions */}
-        <section className="side-column">
-          <div className="card pending-requests">
-            <h3>Demandes en attente</h3>
-            {pending.length === 0 ? (
-              <p>Aucune demande en attente.</p>
-            ) : (
-              <ul>
-                {pending.map((p) => (
-                  <li key={p.id} className="pending-item">
-                    <span>{p.name}</span>
-                    <span className="pending-since">{p.since}</span>
-                    <div className="pending-actions">
-                      <button>Accepter</button>
-                      <button>Refuser</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="card suggestions">
-            <h3>Suggestions d'amis</h3>
+      {loading ? (
+        <div style={{ padding: "2rem" }}>Chargement...</div>
+      ) : (
+        <div className="friends-layout">
+          {/* Colonne gauche : amis */}
+          <section className="card friends-list">
+            <h2>Mes amis</h2>
+            {friends.length === 0 && <p>Aucun ami pour le moment.</p>}
             <ul>
-              {suggestions.map((s) => (
-                <li key={s.id} className="suggest-item">
-                  <span>{s.name}</span>
-                  <span className="suggest-common">
-                    {s.common} ami(s) en commun
-                  </span>
-                  <button>Ajouter</button>
+              {friends.map((f) => (
+                <li key={f.id} className="friend-item">
+                  <div>
+                    <p className="friend-name">{f.username || f.email}</p>
+                    <p className="friend-last-room">{f.email}</p>
+                  </div>
+                  <button onClick={() => deleteFriend(f.id)}>Supprimer</button>
                 </li>
               ))}
             </ul>
-          </div>
-        </section>
-      </div>
+          </section>
+
+          {/* Colonne droite : demandes + suggestions */}
+          <section className="side-column">
+            <div className="card pending-requests">
+              <h3>Ajouter un ami par email</h3>
+              <div className="pending-actions" style={{ gap: "0.5rem" }}>
+                <input
+                  type="email"
+                  placeholder="email@exemple.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                />
+                <button onClick={sendRequest}>Inviter</button>
+              </div>
+            </div>
+
+            <div className="card pending-requests">
+              <h3>Demandes reçues</h3>
+              {pendingReceived.length === 0 ? (
+                <p>Aucune demande en attente.</p>
+              ) : (
+                <ul>
+                  {pendingReceived.map((p) => (
+                    <li key={p.id} className="pending-item">
+                      <span>{p.username || p.email}</span>
+                      <div className="pending-actions">
+                        <button onClick={() => acceptRequest(p.id)}>Accepter</button>
+                        <button onClick={() => deleteFriend(p.id)}>Refuser</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="card pending-requests">
+              <h3>Demandes envoyées</h3>
+              {pendingSent.length === 0 ? (
+                <p>Rien en cours.</p>
+              ) : (
+                <ul>
+                  {pendingSent.map((p) => (
+                    <li key={p.id} className="pending-item">
+                      <span>{p.username || p.email}</span>
+                      <div className="pending-actions">
+                        <button onClick={() => deleteFriend(p.id)}>Annuler</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="card suggestions">
+              <h3>Suggestions d'amis</h3>
+              {suggestions.length === 0 && <p>Aucune suggestion.</p>}
+              <ul>
+                {suggestions.map((s) => (
+                  <li key={s.id} className="suggest-item">
+                    <span>{s.username || s.email}</span>
+                    <button onClick={() => sendRequest(s.email)}>
+                      Ajouter
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

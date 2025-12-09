@@ -8,44 +8,78 @@ const DEFAULT_AVATAR =
 export default function StartRoom() {
   const navigate = useNavigate();
 
-  // Profil (plus tard : appeler l'API /auth/me)
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const userId = localStorage.getItem("userId") || sessionStorage.getItem("userId");
+
   const [profile, setProfile] = useState({
-    id: 1, // ⚠️ TEMPORAIRE : l'utilisateur connecté aura un vrai ID plus tard
+    id: userId,
     username: "mon_pseudo",
     avatar: DEFAULT_AVATAR,
   });
 
-  // Formulaire de création de room
   const [roomConfig, setRoomConfig] = useState({
     roomName: "",
     mediaUrl: "",
     privacy: "private",
   });
 
-  // Friends mocks → plus tard API
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
 
-  // UI
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    // Fake friends pour test
-    const fakeFriends = [
-      { id: 1, name: "Alice", avatar: DEFAULT_AVATAR },
-      { id: 2, name: "Samir", avatar: DEFAULT_AVATAR },
-      { id: 3, name: "Lina", avatar: DEFAULT_AVATAR },
-    ];
-    setFriends(fakeFriends);
-  }, []);
+  const authFetch = async (url, options = {}) => {
+    const headers = options.headers || {};
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
 
-  // Gestion des inputs
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await authFetch(`http://localhost:5000/api/users/${userId}`);
+        if (!res.ok) throw new Error("Impossible de charger le profil");
+        const data = await res.json();
+        setProfile({
+          id: data.id,
+          username: data.username || data.email,
+          avatar: data.avatar || DEFAULT_AVATAR,
+        });
+      } catch (err) {
+        setErrorMsg(err.message);
+      }
+    };
+
+    const loadFriends = async () => {
+      try {
+        const res = await authFetch("http://localhost:5000/api/friends");
+        if (!res.ok) throw new Error("Impossible de charger vos amis");
+        const data = await res.json();
+        setFriends(data.friends || []);
+      } catch (err) {
+        setErrorMsg(err.message);
+      }
+    };
+
+    if (token && userId) {
+      loadProfile();
+      loadFriends();
+    } else {
+      setErrorMsg("Non connecté");
+    }
+  }, [token, userId]);
+
   const handleRoomChange = (field, value) => {
     setRoomConfig((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Sélection amis
   const toggleFriend = (id) => {
     setSelectedFriends((prev) =>
       prev.includes(id)
@@ -54,9 +88,6 @@ export default function StartRoom() {
     );
   };
 
-  // ================================
-  // 🚀 Créer une room (appel backend)
-  // ================================
   const handleCreateRoom = async () => {
     if (!roomConfig.roomName || !roomConfig.mediaUrl) {
       return alert("Remplis tous les champs !");
@@ -65,9 +96,8 @@ export default function StartRoom() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/rooms", {
+      const response = await authFetch("http://localhost:5000/api/rooms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: roomConfig.roomName,
           description: "Room créée depuis StartRoom",
@@ -83,22 +113,22 @@ export default function StartRoom() {
         throw new Error(data.error || "Erreur lors de la création");
       }
 
-      console.log("ROOM CREATED:", data);
+      if (selectedFriends.length > 0) {
+        await authFetch(`http://localhost:5000/api/rooms/${data.id}/invite`, {
+          method: "POST",
+          body: JSON.stringify({ friendIds: selectedFriends }),
+        });
+      }
 
-      // Redirection automatique vers la room nouvellement créée
       navigate(`/room/${data.id}`);
 
     } catch (err) {
-      console.error(err);
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ================================
-  // Rendu
-  // ================================
   if (loading) return <div className="start-room-page">Création en cours...</div>;
   if (errorMsg) return <div className="start-room-page">Erreur : {errorMsg}</div>;
 
@@ -136,7 +166,7 @@ export default function StartRoom() {
             onChange={(e) => handleRoomChange("roomName", e.target.value)}
           />
 
-          <label>Lien média (YouTube, film…)</label>
+          <label>Lien média (YouTube, film...)</label>
           <input
             type="text"
             placeholder="https://..."
@@ -162,6 +192,7 @@ export default function StartRoom() {
         <section className="right-column card friends-card">
           <h3>Inviter des amis</h3>
           <div className="friends-grid">
+            {friends.length === 0 && <p>Aucun ami disponible.</p>}
             {friends.map((f) => (
               <label key={f.id} className="friend-item">
                 <input
@@ -169,8 +200,8 @@ export default function StartRoom() {
                   checked={selectedFriends.includes(f.id)}
                   onChange={() => toggleFriend(f.id)}
                 />
-                <img src={f.avatar} alt={f.name} />
-                <span>{f.name}</span>
+                <img src={f.avatar || DEFAULT_AVATAR} alt={f.username || f.email} />
+                <span>{f.username || f.email}</span>
               </label>
             ))}
           </div>

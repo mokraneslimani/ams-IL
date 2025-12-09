@@ -68,3 +68,26 @@ exports.removeMember = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ===============================
+//   INVITE FRIENDS (notifications)
+// ===============================
+exports.inviteFriends = async (req, res) => {
+  const roomId = req.params.id;
+  const { friendIds } = req.body;
+
+  if (!Array.isArray(friendIds) || friendIds.length === 0) {
+    return res.status(400).json({ message: "friendIds requis" });
+  }
+
+  try {
+    const result = await roomService.inviteFriends({
+      roomId,
+      inviterId: req.userId,
+      friendIds
+    });
+    res.json({ success: true, invitations: result });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};

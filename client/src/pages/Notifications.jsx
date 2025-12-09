@@ -1,35 +1,80 @@
-// src/pages/Notifications.jsx
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "./Notifications.css";
 
 export default function Notifications() {
-  const notifications = [
-    {
-      id: 1,
-      type: "room",
-      title: "Invitation à rejoindre une room",
-      message: "Samir t’a invité à rejoindre « Room - One Piece »",
-      time: "Il y a 10 min",
-      read: false,
-    },
-    {
-      id: 2,
-      type: "friend",
-      title: "Nouvel ami",
-      message: "Lina a accepté ta demande d’ami",
-      time: "Il y a 2 h",
-      read: true,
-    },
-    {
-      id: 3,
-      type: "system",
-      title: "Mise à jour CoWatch",
-      message: "Nouveau mode plein écran disponible.",
-      time: "Hier",
-      read: true,
-    },
-  ];
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const authFetch = async (url, options = {}) => {
+    const headers = options.headers || {};
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
+  const loadNotifications = async () => {
+    if (!token) {
+      setLoading(false);
+      setError("Non connecté.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await authFetch("http://localhost:5000/api/notifications");
+      if (!res.ok) throw new Error("Impossible de charger les notifications");
+      const data = await res.json();
+      setItems(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAll = async () => {
+    try {
+      await authFetch("http://localhost:5000/api/notifications/read-all", {
+        method: "POST",
+      });
+      loadNotifications();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const markRead = async (id) => {
+    try {
+      await authFetch(`http://localhost:5000/api/notifications/read/${id}`, {
+        method: "POST",
+      });
+      loadNotifications();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  if (!token) {
+    return (
+      <div className="notif-page">
+        <p>Vous devez être connecté.</p>
+        <button onClick={() => navigate("/login")}>Aller au login</button>
+      </div>
+    );
+  }
 
   return (
     <div className="notif-page">
@@ -47,52 +92,52 @@ export default function Notifications() {
         <button className="tab-link active">Notif</button>
       </div>
 
+      {error && <div className="auth-error" style={{ margin: "1rem" }}>{error}</div>}
+
       {/* Main content */}
       <main className="notif-content">
         <section className="card notif-list">
           <div className="notif-header-row">
             <h2>Notifications</h2>
-            <button className="mark-all">Tout marquer comme lu</button>
+            <button className="mark-all" onClick={markAll}>Tout marquer comme lu</button>
           </div>
 
-          <ul>
-            {notifications.map((n) => (
-              <li
-                key={n.id}
-                className={`notif-item ${n.read ? "read" : "unread"}`}
-              >
-                <div className="notif-icon">
-                  {n.type === "room" && "🎬"}
-                  {n.type === "friend" && "👥"}
-                  {n.type === "system" && "⚙️"}
-                </div>
+          {loading ? (
+            <p>Chargement...</p>
+          ) : (
+            <ul>
+              {items.map((n) => (
+                <li
+                  key={n.id}
+                  className={`notif-item ${n.is_read ? "read" : "unread"}`}
+                  onClick={() => !n.is_read && markRead(n.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className="notif-icon">🔔</div>
 
-                <div className="notif-body">
-                  <p className="notif-title">{n.title}</p>
-                  <p className="notif-message">{n.message}</p>
-                  <span className="notif-time">{n.time}</span>
-                </div>
+                  <div className="notif-body">
+                    <p className="notif-title">{n.message}</p>
+                    <span className="notif-time">
+                      {n.created_at
+                        ? new Date(n.created_at).toLocaleString("fr-FR")
+                        : ""}
+                    </span>
+                  </div>
 
-                {!n.read && <span className="notif-dot" />}
-              </li>
-            ))}
-          </ul>
+                  {!n.is_read && <span className="notif-dot" />}
+                </li>
+              ))}
+              {items.length === 0 && !loading && <p>Aucune notification.</p>}
+            </ul>
+          )}
         </section>
 
         <aside className="card notif-side">
-          <h3>Filtres rapides</h3>
-          <button>Tout</button>
-          <button>Rooms</button>
-          <button>Amis</button>
-          <button>Système</button>
-
-          <div className="notif-tip">
-            <h4>Astuce</h4>
-            <p>
-              Les notifications non lues apparaissent avec un point bleu.  
-              Pense à les consulter avant de rejoindre une nouvelle room !
-            </p>
-          </div>
+          <h3>Astuce</h3>
+          <p>
+            Clique sur une notification pour la marquer comme lue, ou utilise le bouton
+            "Tout marquer comme lu" pour tout passer en lu.
+          </p>
         </aside>
       </main>
     </div>

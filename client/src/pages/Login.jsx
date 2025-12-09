@@ -11,8 +11,7 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
-    setErrorMsg(""); // reset errors
+    setErrorMsg("");
 
     try {
       const res = await fetch("http://localhost:5000/api/users/login", {
@@ -28,12 +27,29 @@ export default function Login() {
         return;
       }
 
-      // Sauvegarder le token (important pour les futures requêtes)
-      localStorage.setItem("token", data.token);
+      // Stocker le token (session + localStorage)
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        sessionStorage.setItem("token", data.token);
+      }
 
-      // Redirection vers la page profil
+      // Récupérer l'id utilisateur
+      let userId = null;
+      if (data.user && data.user.id) {
+        userId = data.user.id;
+      } else if (data.id) {
+        userId = data.id;
+      }
+
+      if (userId !== null) {
+        localStorage.setItem("userId", String(userId));
+        sessionStorage.setItem("userId", String(userId));
+      } else {
+        setErrorMsg("Aucun identifiant utilisateur retourné.");
+        return;
+      }
+
       navigate("/profile");
-
     } catch (error) {
       setErrorMsg("Impossible de se connecter au serveur");
     }

@@ -43,11 +43,8 @@ export default function SignIn() {
         return;
       }
 
-      // Sauvegarder le token
-      localStorage.setItem("token", data.token);
-
-      // Redirection vers profil
-      navigate("/profile");
+      // On force le passage par la page de login pour créer une session
+      navigate("/login");
 
     } catch (error) {
       setErrorMsg("Impossible de contacter le serveur");

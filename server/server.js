@@ -16,7 +16,7 @@ const app = express();
 app.use(cors({
   origin: ["http://localhost:3000", "http://127.0.0.1:5500"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.options("*", cors());
 
@@ -29,10 +29,14 @@ app.use(express.json());
 const userRoutes = require("./routes/userRoutes");
 const roomRoutes = require("./routes/roomRoutes");
 const historyRoutes = require("./routes/historyRoutes");
+const friendRoutes = require("./routes/friendRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/history", historyRoutes);
+app.use("/api/friends", friendRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Test route API
 app.get("/api/test", async (req, res) => {

@@ -12,13 +12,13 @@ import "./VideoRoom.css";
   GET  /api/rooms/:roomId
 
   // Historique des vidéos de la room
-  GET  /api/rooms/:roomId/history
+  GET  /api/history/:roomId
 
   // Participants / amis dans la room
-  GET  /api/rooms/:roomId/participants
+  GET  /api/rooms/:roomId/participants   (à faire plus tard)
 
   // Envoyer un message dans le chat
-  POST /api/rooms/:roomId/messages
+  POST /api/rooms/:roomId/messages       (à faire plus tard)
 */
 
 const DEFAULT_AVATAR =
@@ -55,6 +55,7 @@ export default function VideoRoom() {
     id: roomId || "room-test",
     name: "Ma Room de test",
   });
+  const [roomError, setRoomError] = useState("");
 
   // -------- Vidéo courante + input --------
   const [videoUrlInput, setVideoUrlInput] = useState("");
@@ -64,29 +65,11 @@ export default function VideoRoom() {
   });
 
   // -------- Historique --------
-  const [history, setHistory] = useState([
-    {
-      id: 1,
-      title: "Epic Adventure Trailer",
-      category: "Adventure",
-      views: "1.2M vues",
-    },
-    {
-      id: 2,
-      title: "Relaxing Lofi Mix",
-      category: "Music",
-      views: "530K vues",
-    },
-    {
-      id: 3,
-      title: "Funny Moments Compilation",
-      category: "Comedy",
-      views: "890K vues",
-    },
-  ]);
+  const [history, setHistory] = useState([]); // plus de données en dur
 
   // -------- Participants / amis dans la room --------
   const [participants, setParticipants] = useState([
+    // à connecter plus tard à /api/rooms/:roomId/participants
     { id: 1, initials: "A", name: "Alice" },
     { id: 2, initials: "M", name: "Mokrane" },
     { id: 3, initials: "S", name: "Samira" },
@@ -99,7 +82,9 @@ export default function VideoRoom() {
   ]);
   const [chatInput, setChatInput] = useState("");
 
-  // -------- Charger l'utilisateur connecté par ID --------
+  // ============================
+  // 1) Charger le profil connecté
+  // ============================
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -131,18 +116,84 @@ export default function VideoRoom() {
     loadProfile();
   }, []);
 
-  // --------- Future intégration API room (plus tard) ---------
+  // =========================================
+  // 2) Charger les infos de la room + la vidéo
+  // =========================================
   useEffect(() => {
-    // Exemple plus tard :
-    // async function loadRoom() {
-    //   const res = await fetch(`http://localhost:5000/api/rooms/${roomId}`);
-    //   const data = await res.json();
-    //   setRoomInfo(data.room);
-    //   setCurrentVideo({ url: data.room.mediaUrl, title: data.room.title });
-    //   setHistory(data.history);
-    //   setParticipants(data.participants);
-    // }
-    // loadRoom();
+    if (!roomId) return;
+
+    const loadRoom = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/rooms/${roomId}`
+        );
+        if (!res.ok) {
+          throw new Error("Room introuvable");
+        }
+
+        // ton contrôleur renvoie directement la room (pas dans { room: ... })
+        const room = await res.json();
+
+        setRoomInfo({
+          id: room.id,
+          name: room.name || "Room sans nom",
+          description: room.description || "",
+        });
+
+        // On charge aussi la vidéo principale depuis la colonne video_url
+        setCurrentVideo({
+          url: room.video_url || "",
+          title: room.name || "",
+        });
+      } catch (err) {
+        console.error("Erreur chargement room :", err);
+        setRoomError(err.message);
+      }
+    };
+
+    loadRoom();
+  }, [roomId]);
+
+  // =========================================
+  // 3) Charger l'historique de la room
+  // =========================================
+  useEffect(() => {
+    if (!roomId) return;
+
+    const loadHistory = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/history/${roomId}`
+        );
+        if (!res.ok) {
+          throw new Error("Erreur lors du chargement de l'historique");
+        }
+
+        const data = await res.json();
+
+        // data = lignes de la table history :
+        // { id, room_id, video_url, title, thumbnail, created_at }
+        const mapped = data.map((item) => ({
+          id: item.id,
+          title: item.title || "Vidéo",
+          // on stocke la catégorie juste pour l'affichage, ici on met quelque chose de simple
+          category: "Historique",
+          // on utilise created_at comme "info" (à la place de vues pour l'instant)
+          views: item.created_at
+            ? new Date(item.created_at).toLocaleString("fr-FR")
+            : "",
+          thumbnail: item.thumbnail,
+          videoUrl: item.video_url,
+        }));
+
+        setHistory(mapped);
+      } catch (err) {
+        console.error("Erreur chargement history :", err);
+        // on ne casse pas l'UI, on laisse juste l'historique vide
+      }
+    };
+
+    loadHistory();
   }, [roomId]);
 
   // -------- Handlers --------
@@ -155,10 +206,42 @@ export default function VideoRoom() {
     );
   };
 
-  const getEmbedUrl = (url) => {
-    if (!url) return "";
-    return url.replace("watch?v=", "embed/");
-  };
+const getEmbedUrl = (url) => {
+  if (!url) return "";
+
+  try {
+    const u = new URL(url);
+
+    // On n'accepte que youtube.com ou youtu.be
+    if (
+      !u.hostname.includes("youtube.com") &&
+      !u.hostname.includes("youtu.be")
+    ) {
+      return "";
+    }
+
+    let videoId = "";
+
+    // Cas 1 : https://www.youtube.com/watch?v=XXXX
+    if (u.searchParams.get("v")) {
+      videoId = u.searchParams.get("v");
+    }
+
+    // Cas 2 : https://youtu.be/XXXX
+    if (!videoId && u.hostname.includes("youtu.be")) {
+      videoId = u.pathname.replace("/", "");
+    }
+
+    if (!videoId) return "";
+
+    // URL officielle d'embed
+    return `https://www.youtube.com/embed/${videoId}`;
+  } catch (e) {
+    return "";
+  }
+};
+
+
 
   const loadVideo = () => {
     if (!videoUrlInput) return;
@@ -168,12 +251,14 @@ export default function VideoRoom() {
       title: "Nouvelle vidéo",
     });
 
+    // Option : envoyer aussi au backend pour l'historique
     setHistory((prev) => [
       {
         id: Date.now(),
         title: "Nouvelle vidéo",
         category: "Custom",
         views: "N/A",
+        videoUrl: videoUrlInput,
       },
       ...prev,
     ]);
@@ -203,7 +288,10 @@ export default function VideoRoom() {
 
         <div className="room-header-right">
           <span className="room-name">
-            Room : <strong>{roomInfo.name}</strong>
+            Room :{" "}
+            <strong>
+              {roomError ? "Room inconnue" : roomInfo.name}
+            </strong>
           </span>
           <input
             className="search-input"
@@ -276,27 +364,37 @@ export default function VideoRoom() {
             </div>
 
             <div className="video-box">
-              {currentVideo.url ? (
-                <iframe
-                  src={getEmbedUrl(currentVideo.url)}
-                  title={currentVideo.title || "YouTube Video"}
-                  frameBorder="0"
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                ></iframe>
-              ) : (
-                <p className="placeholder">Aucune vidéo chargée.</p>
-              )}
-            </div>
+  {currentVideo.url && getEmbedUrl(currentVideo.url) ? (
+    <iframe
+      src={getEmbedUrl(currentVideo.url)}
+      title={currentVideo.title || "YouTube Video"}
+      frameBorder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    ></iframe>
+  ) : (
+    <p className="placeholder">Aucune vidéo chargée.</p>
+  )}
+</div>
+
+
           </div>
 
           {/* Historique */}
           <section className="history-section">
             <h3>Historique</h3>
             <div className="history-list">
+              {history.length === 0 && (
+                <p className="placeholder">
+                  Aucun historique pour cette room.
+                </p>
+              )}
+
               {history.map((item) => (
                 <div key={item.id} className="history-card">
-                  <div className="thumb-placeholder"></div>
+                  <div className="thumb-placeholder">
+                    {/* plus tard : <img src={item.thumbnail} ... /> */}
+                  </div>
                   <div className="history-info">
                     <h4>{item.title}</h4>
                     <p>{item.category}</p>

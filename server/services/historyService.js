@@ -31,6 +31,11 @@ const historyService = {
     async getAll() {
         const result = await History.getAll();
         return result.rows;
+    },
+
+    // Alias pour compatibilité contrôleur
+    async getAllHistory() {
+        return this.getAll();
     }
 };
 

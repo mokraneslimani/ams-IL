@@ -6,9 +6,9 @@ import VideoRoom from "./pages/VideoRoom";
 import CreateRoom from "./pages/CreateRoom";
 import Profile from "./pages/Profile";
 import StartRoom from "./pages/StartRoom";
-// plus tard : Friends, Notifications, etc.
-// import Friends from "./pages/Friends";
-// import Notifications from "./pages/Notifications";
+import Friends from "./pages/Friends";
+import Notifications from "./pages/Notifications";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -22,16 +22,58 @@ function App() {
         <Route path="/signin" element={<SignIn />} />
 
         {/* Profil + Start Room */}
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/start-room" element={<StartRoom />} />
-        <Route path="/create-room" element={<CreateRoom />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/start-room"
+          element={
+            <ProtectedRoute>
+              <StartRoom />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create-room"
+          element={
+            <ProtectedRoute>
+              <CreateRoom />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Watch */}
-        <Route path="/room/:roomId" element={<VideoRoom />} />
+        <Route
+          path="/room/:roomId"
+          element={
+            <ProtectedRoute>
+              <VideoRoom />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Plus tard */}
-        {/* <Route path="/friends" element={<Friends />} /> */}
-        {/* <Route path="/notifications" element={<Notifications />} /> */}
+        {/* Social */}
+        <Route
+          path="/friends"
+          element={
+            <ProtectedRoute>
+              <Friends />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

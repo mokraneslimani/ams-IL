@@ -10,14 +10,6 @@ exports.getAllUsers = () => {
     return db.query("SELECT * FROM users");
 };
 
-// Créer un utilisateur
-exports.createUser = (username, email, password) => {
-    return db.query(
-        "INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *",
-        [username, email, password]
-    );
-};
-
 exports.getUserByEmail = (email) => {
   return db.query("SELECT * FROM users WHERE email = $1", [email]);
 };

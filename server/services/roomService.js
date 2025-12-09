@@ -1,5 +1,6 @@
 const Room = require("../models/roomModel");
 const RoomMember = require("../models/roomMemberModel"); // si tu as un model pour room_members
+const notificationService = require("./notificationService");
 const crypto = require("crypto");
 
 const roomService = {
@@ -51,6 +52,24 @@ const roomService = {
   async removeMember(roomId, userId) {
     const result = await RoomMember.removeMember(roomId, userId);
     return result.rows[0];
+  },
+
+  // INVITER DES AMIS : crée des notifications
+  async inviteFriends({ roomId, inviterId, friendIds }) {
+    if (!Array.isArray(friendIds) || friendIds.length === 0) {
+      throw new Error("friendIds requis");
+    }
+
+    // On pourrait valider que la room existe et que inviterId est membre/owner
+    const invitations = [];
+    for (const fid of friendIds) {
+      const notif = await notificationService.create(
+        fid,
+        `Invitation à rejoindre la room ${roomId} (par user ${inviterId}).`
+      );
+      invitations.push(notif);
+    }
+    return invitations;
   }
 };
 
