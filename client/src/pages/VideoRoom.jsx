@@ -2,103 +2,91 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import "./VideoRoom.css";
 
-/*
-  === APIS PRÉVUES ===
-
-  // Profil connecté
-  GET  /api/users/:id
-
-  // Infos de la room (nom, url vidéo, créateur, etc.)
-  GET  /api/rooms/:roomId
-
-  // Historique des vidéos de la room
-  GET  /api/history/:roomId
-
-  // Participants / amis dans la room
-  GET  /api/rooms/:roomId/participants   (à faire plus tard)
-
-  // Envoyer un message dans le chat
-  POST /api/rooms/:roomId/messages       (à faire plus tard)
-*/
-
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 
 export default function VideoRoom() {
   const { roomId } = useParams(); // /room/:roomId
 
-  // -------- Profil / utilisateur courant --------
-  const [profile, setProfile] = useState({
-    username: "mon_pseudo",
-    avatar: DEFAULT_AVATAR,
-  });
+  // Profil / utilisateur courant
+  const [profile, setProfile] = useState({ username: "mon_pseudo", avatar: DEFAULT_AVATAR });
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
 
-  // -------- Menu "Mon espace" --------
+  // Menu
   const [menuItems] = useState([
     { id: "profile", label: "Profil", path: "/profile" },
-    { id: "settings", label: "Paramètres", path: "/settings" }, // plus tard
-    { id: "playlist", label: "Playlist", path: "/playlist" },   // plus tard
-    { id: "addFriend", label: "Ajouter un ami", path: "/friends" },
+    { id: "settings", label: "Parametres", path: "/settings" },
+    { id: "playlist", label: "Playlist", path: "/playlist" },
   ]);
 
-  // -------- Contrôles (caméra, micro, écran) --------
+  // Controles
   const [controls, setControls] = useState([
-    { id: "camera", label: "Caméra", enabled: true },
+    { id: "camera", label: "Camera", enabled: true },
     { id: "micro", label: "Micro", enabled: true },
-    { id: "screen", label: "Partage d'écran", enabled: false },
+    { id: "screen", label: "Partage d'ecran", enabled: false },
   ]);
 
-  // -------- Infos de la room --------
-  const [roomInfo, setRoomInfo] = useState({
-    id: roomId || "room-test",
-    name: "Ma Room de test",
-  });
+  // Infos room
+  const [roomInfo, setRoomInfo] = useState({ id: roomId || "room", name: "Room" });
   const [roomError, setRoomError] = useState("");
 
-  // -------- Vidéo courante + input --------
+  // Video
   const [videoUrlInput, setVideoUrlInput] = useState("");
-  const [currentVideo, setCurrentVideo] = useState({
-    url: "",
-    title: "",
-  });
+  const [currentVideo, setCurrentVideo] = useState({ url: "", title: "" });
 
-  // -------- Historique --------
-  const [history, setHistory] = useState([]); // plus de données en dur
+  // Historique
+  const [history, setHistory] = useState([]);
 
-  // -------- Participants / amis dans la room --------
-  const [participants, setParticipants] = useState([
-    // à connecter plus tard à /api/rooms/:roomId/participants
-    { id: 1, initials: "A", name: "Alice" },
-    { id: 2, initials: "M", name: "Mokrane" },
-    { id: 3, initials: "S", name: "Samira" },
-    { id: 4, initials: "I", name: "Idir" },
-  ]);
+  // Participants
+  const [participants, setParticipants] = useState([]);
 
-  // -------- Chat --------
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, author: "System", text: "Bienvenue dans la room !" },
-  ]);
+  // Chat
+  const [chatMessages, setChatMessages] = useState([{ id: 1, author: "System", text: "Bienvenue dans la room !" }]);
   const [chatInput, setChatInput] = useState("");
 
-  // ============================
-  // 1) Charger le profil connecté
-  // ============================
+  // Invites / friends
+  const [friends, setFriends] = useState([]);
+  const [selectedFriends, setSelectedFriends] = useState([]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState("");
+
+  // Settings
+  const [videoSettings, setVideoSettings] = useState({
+    autoplay: false,
+    defaultVolume: 50,
+    subtitles: "off",
+    quality: "auto",
+    syncMode: "strict",
+  });
+  const [roomSettings, setRoomSettings] = useState({
+    privacy: "private",
+    hostDelay: 0,
+    chatLocked: false,
+    screenShare: true,
+    maxParticipants: 10,
+    pin: "",
+    expireMinutes: 0,
+    notifInvites: true,
+    notifChanges: true,
+    notifParticipants: true,
+    showInitials: false,
+  });
+
+  // --------- Effects ----------
+
+  // Profil
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const storedId = localStorage.getItem("userId");
+        const storedId = localStorage.getItem("userId") || sessionStorage.getItem("userId");
         if (!storedId) {
-          setProfileError("Utilisateur non connecté (userId manquant).");
+          setProfileError("Utilisateur non connecte (userId manquant).");
           return;
         }
 
-        const res = await fetch(
-          `http://localhost:5000/api/users/${storedId}`
-        );
+        const res = await fetch(`http://localhost:5000/api/users/${storedId}`);
         if (!res.ok) {
-          throw new Error("Impossible de récupérer l'utilisateur connecté");
+          throw new Error("Impossible de recuperer l'utilisateur connecte");
         }
         const user = await res.json();
 
@@ -116,22 +104,15 @@ export default function VideoRoom() {
     loadProfile();
   }, []);
 
-  // =========================================
-  // 2) Charger les infos de la room + la vidéo
-  // =========================================
+  // Room + video principale
   useEffect(() => {
     if (!roomId) return;
-
     const loadRoom = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/rooms/${roomId}`
-        );
+        const res = await fetch(`http://localhost:5000/api/rooms/${roomId}`);
         if (!res.ok) {
           throw new Error("Room introuvable");
         }
-
-        // ton contrôleur renvoie directement la room (pas dans { room: ... })
         const room = await res.json();
 
         setRoomInfo({
@@ -140,218 +121,301 @@ export default function VideoRoom() {
           description: room.description || "",
         });
 
-        // On charge aussi la vidéo principale depuis la colonne video_url
         setCurrentVideo({
           url: room.video_url || "",
           title: room.name || "",
         });
       } catch (err) {
-        console.error("Erreur chargement room :", err);
         setRoomError(err.message);
       }
     };
-
     loadRoom();
   }, [roomId]);
 
-  // =========================================
-  // 3) Charger l'historique de la room
-  // =========================================
+  // Historique
   useEffect(() => {
     if (!roomId) return;
-
     const loadHistory = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/history/${roomId}`
-        );
+        const res = await fetch(`http://localhost:5000/api/history/${roomId}`);
         if (!res.ok) {
           throw new Error("Erreur lors du chargement de l'historique");
         }
-
         const data = await res.json();
-
-        // data = lignes de la table history :
-        // { id, room_id, video_url, title, thumbnail, created_at }
         const mapped = data.map((item) => ({
           id: item.id,
-          title: item.title || "Vidéo",
-          // on stocke la catégorie juste pour l'affichage, ici on met quelque chose de simple
+          title: item.title || "Video",
           category: "Historique",
-          // on utilise created_at comme "info" (à la place de vues pour l'instant)
-          views: item.created_at
-            ? new Date(item.created_at).toLocaleString("fr-FR")
-            : "",
+          views: item.created_at ? new Date(item.created_at).toLocaleString("fr-FR") : "",
           thumbnail: item.thumbnail,
           videoUrl: item.video_url,
         }));
-
         setHistory(mapped);
       } catch (err) {
         console.error("Erreur chargement history :", err);
-        // on ne casse pas l'UI, on laisse juste l'historique vide
       }
     };
-
     loadHistory();
   }, [roomId]);
 
-  // -------- Handlers --------
+  // Members
+  useEffect(() => {
+    if (!roomId) return;
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const loadMembers = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/rooms/${roomId}/members`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Impossible de charger les membres");
+        const data = await res.json();
+        const mapped = data.map((m) => ({
+          id: m.id || m.user_id || Math.random(),
+          username: m.username || m.email || "user",
+          avatar: m.avatar || DEFAULT_AVATAR,
+          initials: (m.username || m.email || "U").slice(0, 1).toUpperCase(),
+        }));
+        setParticipants(mapped);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadMembers();
+  }, [roomId]);
+
+  // Friends list (for invites)
+  useEffect(() => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) return;
+    const loadFriends = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/friends", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Impossible de charger vos amis");
+        const data = await res.json();
+        setFriends(data.friends || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadFriends();
+  }, []);
+
+  // --------- Helpers ----------
 
   const toggleControl = (id) => {
     setControls((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, enabled: !c.enabled } : c
-      )
+      prev.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c))
     );
   };
 
-const getEmbedUrl = (url) => {
-  if (!url) return "";
-
-  try {
-    const u = new URL(url);
-
-    // On n'accepte que youtube.com ou youtu.be
-    if (
-      !u.hostname.includes("youtube.com") &&
-      !u.hostname.includes("youtu.be")
-    ) {
+  const getEmbedUrl = (url) => {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      if (!u.hostname.includes("youtube.com") && !u.hostname.includes("youtu.be")) {
+        return "";
+      }
+      let videoId = "";
+      if (u.searchParams.get("v")) videoId = u.searchParams.get("v");
+      if (!videoId && u.hostname.includes("youtu.be")) {
+        videoId = u.pathname.replace("/", "");
+      }
+      if (!videoId) return "";
+      return `https://www.youtube.com/embed/${videoId}`;
+    } catch (e) {
       return "";
     }
+  };
 
-    let videoId = "";
-
-    // Cas 1 : https://www.youtube.com/watch?v=XXXX
-    if (u.searchParams.get("v")) {
-      videoId = u.searchParams.get("v");
-    }
-
-    // Cas 2 : https://youtu.be/XXXX
-    if (!videoId && u.hostname.includes("youtu.be")) {
-      videoId = u.pathname.replace("/", "");
-    }
-
-    if (!videoId) return "";
-
-    // URL officielle d'embed
-    return `https://www.youtube.com/embed/${videoId}`;
-  } catch (e) {
-    return "";
-  }
-};
-
-
+  // --------- Actions ----------
 
   const loadVideo = () => {
     if (!videoUrlInput) return;
-
-    setCurrentVideo({
-      url: videoUrlInput,
-      title: "Nouvelle vidéo",
-    });
-
-    // Option : envoyer aussi au backend pour l'historique
+    setCurrentVideo({ url: videoUrlInput, title: "Nouvelle video" });
     setHistory((prev) => [
-      {
-        id: Date.now(),
-        title: "Nouvelle vidéo",
-        category: "Custom",
-        views: "N/A",
-        videoUrl: videoUrlInput,
-      },
+      { id: Date.now(), title: "Nouvelle video", category: "Custom", views: "N/A", videoUrl: videoUrlInput },
       ...prev,
     ]);
   };
 
   const sendMessage = () => {
     if (!chatInput.trim()) return;
-
-    const newMsg = {
-      id: Date.now(),
-      author: profile.username,
-      text: chatInput.trim(),
-    };
-
+    const newMsg = { id: Date.now(), author: profile.username, text: chatInput.trim() };
     setChatMessages((prev) => [...prev, newMsg]);
     setChatInput("");
   };
 
-  // -------- Rendu --------
+  const toggleFriend = (id) => {
+    setSelectedFriends((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const sendInvites = async () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!roomId || selectedFriends.length === 0) {
+      setInviteStatus("Selectionne au moins un ami.");
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost:5000/api/rooms/${roomId}/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ friendIds: selectedFriends }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Envoi invitations echoue");
+      setInviteStatus("Invitations envoyees !");
+      setSelectedFriends([]);
+    } catch (err) {
+      setInviteStatus(err.message);
+    }
+  };
+
+  const roomLink = `${window.location.origin}/room/${roomId}`;
+  const copyLink = () => {
+    navigator.clipboard.writeText(roomLink);
+    setInviteStatus("Lien copie !");
+  };
+
+  // --------- Rendu ---------
+
   return (
     <div className="room-container">
       {/* HEADER */}
       <header className="room-header">
-        <Link to="/" className="logo">
-          CoWatch
-        </Link>
-
+        <Link to="/" className="logo">CoWatch</Link>
         <div className="room-header-right">
           <span className="room-name">
-            Room :{" "}
-            <strong>
-              {roomError ? "Room inconnue" : roomInfo.name}
-            </strong>
+            Room : <strong>{roomError ? "Room inconnue" : roomInfo.name}</strong>
           </span>
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Rechercher..."
-          />
+          <input className="search-input" type="text" placeholder="Rechercher..." />
         </div>
       </header>
 
-      {/* LAYOUT 3 COLONNES */}
       <div className="room-layout">
-        {/* COLONNE GAUCHE – MON ESPACE */}
+        {/* Sidebar gauche */}
         <aside className="room-sidebar">
           <div className="profile-mini">
-            <img
-              src={profile.avatar}
-              alt={profile.username}
-              className="profile-mini-avatar"
-            />
+            <img src={profile.avatar} alt={profile.username} className="profile-mini-avatar" />
             <span>
-              {profileLoading
-                ? "Chargement..."
-                : profileError
-                ? "Erreur profil"
-                : `@${profile.username}`}
+              {profileLoading ? "Chargement..." : profileError ? "Erreur profil" : `@${profile.username}`}
             </span>
           </div>
 
           <h3>Mon espace</h3>
-
           <ul className="sidebar-menu">
             {menuItems.map((item) => (
               <li key={item.id}>
-                {item.path ? (
-                  <Link to={item.path}>{item.label}</Link>
-                ) : (
-                  <span>{item.label}</span>
-                )}
+                {item.path ? <Link to={item.path}>{item.label}</Link> : <span>{item.label}</span>}
               </li>
             ))}
+            <li>
+              <button className="sidebar-action" onClick={() => setShowInvite(true)}>
+                Inviter des amis
+              </button>
+            </li>
           </ul>
 
           <div className="sidebar-section">
-            <h4>Contrôles</h4>
+            <h4>Controles</h4>
             {controls.map((ctrl) => (
               <div key={ctrl.id} className="toggle-row">
                 <span>{ctrl.label}</span>
-                <input
-                  type="checkbox"
-                  checked={ctrl.enabled}
-                  onChange={() => toggleControl(ctrl.id)}
-                />
+                <input type="checkbox" checked={ctrl.enabled} onChange={() => toggleControl(ctrl.id)} />
               </div>
             ))}
           </div>
+
+          <div className="sidebar-section">
+            <h4>Parametres video</h4>
+            <label className="setting-row">
+              <span>Autoplay</span>
+              <input
+                type="checkbox"
+                checked={videoSettings.autoplay}
+                onChange={(e) => setVideoSettings((p) => ({ ...p, autoplay: e.target.checked }))}
+              />
+            </label>
+            <label className="setting-row">
+              <span>Volume</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={videoSettings.defaultVolume}
+                onChange={(e) => setVideoSettings((p) => ({ ...p, defaultVolume: Number(e.target.value) }))}
+              />
+            </label>
+            <label className="setting-row">
+              <span>Qualite</span>
+              <select
+                value={videoSettings.quality}
+                onChange={(e) => setVideoSettings((p) => ({ ...p, quality: e.target.value }))}
+              >
+                <option value="auto">Auto</option>
+                <option value="1080p">1080p</option>
+                <option value="720p">720p</option>
+                <option value="480p">480p</option>
+              </select>
+            </label>
+            <label className="setting-row">
+              <span>Synchro</span>
+              <select
+                value={videoSettings.syncMode}
+                onChange={(e) => setVideoSettings((p) => ({ ...p, syncMode: e.target.value }))}
+              >
+                <option value="strict">Host controle</option>
+                <option value="free">Libre</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="sidebar-section">
+            <h4>Parametres room</h4>
+            <label className="setting-row">
+              <span>Confidentialite</span>
+              <select
+                value={roomSettings.privacy}
+                onChange={(e) => setRoomSettings((p) => ({ ...p, privacy: e.target.value }))}
+              >
+                <option value="private">Privee</option>
+                <option value="public">Publique</option>
+              </select>
+            </label>
+            <label className="setting-row">
+              <span>Chat verrouille</span>
+              <input
+                type="checkbox"
+                checked={roomSettings.chatLocked}
+                onChange={(e) => setRoomSettings((p) => ({ ...p, chatLocked: e.target.checked }))}
+              />
+            </label>
+            <label className="setting-row">
+              <span>Max participants</span>
+              <input
+                type="number"
+                min="1"
+                value={roomSettings.maxParticipants}
+                onChange={(e) => setRoomSettings((p) => ({ ...p, maxParticipants: Number(e.target.value) }))}
+              />
+            </label>
+            <label className="setting-row">
+              <span>PIN</span>
+              <input
+                type="text"
+                value={roomSettings.pin}
+                onChange={(e) => setRoomSettings((p) => ({ ...p, pin: e.target.value }))}
+              />
+            </label>
+          </div>
         </aside>
 
-        {/* COLONNE CENTRALE – VIDEO + HISTORIQUE */}
+        {/* Centre : video + historique */}
         <main className="room-center">
-          {/* Zone vidéo */}
           <div className="video-section">
             <div className="url-input-box">
               <input
@@ -364,37 +428,27 @@ const getEmbedUrl = (url) => {
             </div>
 
             <div className="video-box">
-  {currentVideo.url && getEmbedUrl(currentVideo.url) ? (
-    <iframe
-      src={getEmbedUrl(currentVideo.url)}
-      title={currentVideo.title || "YouTube Video"}
-      frameBorder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowFullScreen
-    ></iframe>
-  ) : (
-    <p className="placeholder">Aucune vidéo chargée.</p>
-  )}
-</div>
-
-
+              {currentVideo.url && getEmbedUrl(currentVideo.url) ? (
+                <iframe
+                  src={getEmbedUrl(currentVideo.url)}
+                  title={currentVideo.title || "YouTube Video"}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              ) : (
+                <p className="placeholder">Aucune video chargee.</p>
+              )}
+            </div>
           </div>
 
-          {/* Historique */}
           <section className="history-section">
             <h3>Historique</h3>
             <div className="history-list">
-              {history.length === 0 && (
-                <p className="placeholder">
-                  Aucun historique pour cette room.
-                </p>
-              )}
-
+              {history.length === 0 && <p className="placeholder">Aucun historique pour cette room.</p>}
               {history.map((item) => (
                 <div key={item.id} className="history-card">
-                  <div className="thumb-placeholder">
-                    {/* plus tard : <img src={item.thumbnail} ... /> */}
-                  </div>
+                  <div className="thumb-placeholder"></div>
                   <div className="history-info">
                     <h4>{item.title}</h4>
                     <p>{item.category}</p>
@@ -406,22 +460,29 @@ const getEmbedUrl = (url) => {
           </section>
         </main>
 
-        {/* COLONNE DROITE – LIVE ROOM + CHAT */}
+        {/* Droite : Live room + chat */}
         <aside className="room-right">
           <section className="live-room">
             <h3>Live Room</h3>
             <div className="avatars">
               {participants.map((p) => (
-                <div key={p.id} className="avatar" title={p.name}>
-                  {p.initials}
+                <div key={p.id} className="avatar" title={p.username}>
+                  {roomSettings.showInitials ? (
+                    p.initials
+                  ) : (
+                    <>
+                      <img src={p.avatar} alt={p.username} />
+                      <span className="avatar-name">{p.username}</span>
+                    </>
+                  )}
                 </div>
               ))}
+              {participants.length === 0 && <p className="placeholder">Aucun membre pour l'instant.</p>}
             </div>
           </section>
 
           <section className="chat-section">
             <h3>Chat</h3>
-
             <div className="chat-messages">
               {chatMessages.map((msg) => (
                 <p key={msg.id}>
@@ -429,11 +490,10 @@ const getEmbedUrl = (url) => {
                 </p>
               ))}
             </div>
-
             <div className="chat-input">
               <input
                 type="text"
-                placeholder="Écrire un message..."
+                placeholder="Ecrire un message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
               />
@@ -442,6 +502,45 @@ const getEmbedUrl = (url) => {
           </section>
         </aside>
       </div>
+
+      {showInvite && (
+        <div className="modal-overlay" onClick={() => setShowInvite(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Inviter des amis</h3>
+            <div className="modal-section">
+              <p>Lien de la room</p>
+              <div className="link-box">
+                <input type="text" value={roomLink} readOnly />
+                <button onClick={copyLink}>Copier</button>
+                <a href={`mailto:?subject=Rejoins ma room&body=${encodeURIComponent(roomLink)}`} className="share-btn">Gmail</a>
+                <a href={`https://wa.me/?text=${encodeURIComponent(roomLink)}`} target="_blank" rel="noreferrer" className="share-btn">WhatsApp</a>
+              </div>
+            </div>
+            <div className="modal-section">
+              <p>Selectionne des amis</p>
+              <div className="friends-grid">
+                {friends.length === 0 && <p>Aucun ami disponible.</p>}
+                {friends.map((f) => (
+                  <label key={f.id} className="friend-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedFriends.includes(f.id)}
+                      onChange={() => toggleFriend(f.id)}
+                    />
+                    <img src={f.avatar || DEFAULT_AVATAR} alt={f.username || f.email} />
+                    <span>{f.username || f.email}</span>
+                  </label>
+                ))}
+              </div>
+              {inviteStatus && <p className="auth-error" style={{ marginTop: 8 }}>{inviteStatus}</p>}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "10px" }}>
+                <button onClick={() => setShowInvite(false)} className="share-btn">Fermer</button>
+                <button onClick={sendInvites} className="share-btn">Envoyer invitations</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

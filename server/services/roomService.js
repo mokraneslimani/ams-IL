@@ -35,7 +35,16 @@ const roomService = {
       link: uniqueLink
     });
 
-    return result.rows[0];
+    const room = result.rows[0];
+
+    // Ajouter automatiquement le créateur comme membre (owner)
+    try {
+      await RoomMember.addMember(room.id, owner_id, "owner");
+    } catch (err) {
+      console.error("Erreur addMember owner:", err);
+    }
+
+    return room;
   },
 
   // ===============================
@@ -54,6 +63,24 @@ const roomService = {
     return result.rows[0];
   },
 
+  // ===============================
+  //   GET MEMBERS
+  // ===============================
+  async getMembers(roomId) {
+    const result = await RoomMember.getMembers(roomId);
+    return result.rows;
+  },
+
+  // ===============================
+  //   SAFE ADD MEMBER (no duplicate)
+  // ===============================
+  async safeAddMember(roomId, userId) {
+    const exists = await RoomMember.isMember(roomId, userId);
+    if (exists.rows.length > 0) return exists.rows[0];
+    const added = await RoomMember.addMember(roomId, userId);
+    return added.rows[0];
+  },
+
   // INVITER DES AMIS : crée des notifications
   async inviteFriends({ roomId, inviterId, friendIds }) {
     if (!Array.isArray(friendIds) || friendIds.length === 0) {
@@ -65,7 +92,11 @@ const roomService = {
     for (const fid of friendIds) {
       const notif = await notificationService.create(
         fid,
-        `Invitation à rejoindre la room ${roomId} (par user ${inviterId}).`
+        JSON.stringify({
+          type: "room_invite",
+          roomId,
+          inviterId,
+        })
       );
       invitations.push(notif);
     }

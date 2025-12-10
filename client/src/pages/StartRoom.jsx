@@ -28,6 +28,14 @@ export default function StartRoom() {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [activeRoom, setActiveRoom] = useState(() => {
+    try {
+      const stored = localStorage.getItem("activeRoom");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const authFetch = async (url, options = {}) => {
     const headers = options.headers || {};
@@ -120,6 +128,11 @@ export default function StartRoom() {
         });
       }
 
+      // conserver la room active pour y revenir facilement
+      const roomInfo = { id: data.id, name: data.name || roomConfig.roomName };
+      setActiveRoom(roomInfo);
+      localStorage.setItem("activeRoom", JSON.stringify(roomInfo));
+
       navigate(`/room/${data.id}`);
 
     } catch (err) {
@@ -127,6 +140,11 @@ export default function StartRoom() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearActiveRoom = () => {
+    setActiveRoom(null);
+    localStorage.removeItem("activeRoom");
   };
 
   if (loading) return <div className="start-room-page">Création en cours...</div>;
@@ -153,6 +171,24 @@ export default function StartRoom() {
       </div>
 
       <div className="start-room-layout">
+        {activeRoom && (
+          <div className="card" style={{ marginBottom: 12, gridColumn: "1 / -1" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h4 style={{ margin: 0 }}>Room en cours</h4>
+                <p style={{ margin: "4px 0 0" }}>{activeRoom.name} (ID: {activeRoom.id})</p>
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button className="tab" onClick={() => navigate(`/room/${activeRoom.id}`)}>
+                  Rejoindre
+                </button>
+                <button className="tab" onClick={clearActiveRoom}>
+                  Fermer la room
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* FORMULAIRE */}
         <section className="center-column card form-card">

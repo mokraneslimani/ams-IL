@@ -396,16 +396,124 @@
 
 .avatar {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: 64px;
   border-radius: 10px;
   background: var(--bg-card);
   color: var(--yellow);
   font-weight: 700;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  font-size: 15px;
+  font-size: 14px;
   border: 1px solid rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  gap: 8px;
+  padding: 6px 8px;
+}
+.avatar img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.avatar-name {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+/* Settings rows */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #b1b1c0;
+  font-size: 13px;
+}
+.setting-row input[type="range"] {
+  width: 120px;
+}
+.setting-row select,
+.setting-row input[type="number"],
+.setting-row input[type="text"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.sidebar-action {
+  width: 100%;
+  border: none;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--bg-panel-soft);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 13px;
+}
+.sidebar-action:hover {
+  background: #222234;
+}
+
+/* Modal invite */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal-card {
+  background: #11111a;
+  padding: 16px;
+  border-radius: 12px;
+  width: 520px;
+  border: 1px solid #25253a;
+  color: #f1f1f1;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+}
+.modal-section {
+  margin-top: 12px;
+}
+.link-box {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.link-box input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #25253a;
+  background: #1c1c24;
+  color: #f1f1f1;
+}
+.share-btn {
+  border: none;
+  background: #1e1e30;
+  color: #f1f1f1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: none;
+}
+.friends-grid .friend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.friends-grid .friend-item img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 /* CHAT */

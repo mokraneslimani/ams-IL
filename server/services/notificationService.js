@@ -5,6 +5,11 @@ const notificationService = {
     return (await Notification.addNotification(userId, message)).rows[0];
   },
 
+  async get(id) {
+    const rows = await Notification.getById(id);
+    return rows.rows[0] || null;
+  },
+
   async list(userId) {
     return (await Notification.getByUser(userId)).rows;
   },

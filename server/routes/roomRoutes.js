@@ -8,6 +8,7 @@ router.get("/", roomController.getAllRooms);
 
 // GET one room by ID
 router.get("/:id", roomController.getRoomById);
+router.get("/:id/members", roomController.getMembers);
 
 // CREATE room
 router.post("/", roomController.createRoom);

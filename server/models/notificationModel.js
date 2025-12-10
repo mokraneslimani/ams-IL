@@ -10,6 +10,14 @@ const Notification = {
     return db.query(query, [userId, message]);
   },
 
+  async getById(id) {
+    const query = `
+      SELECT * FROM notifications
+      WHERE id = $1
+    `;
+    return db.query(query, [id]);
+  },
+
   async getByUser(userId) {
     const query = `
       SELECT * FROM notifications

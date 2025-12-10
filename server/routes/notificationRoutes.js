@@ -9,4 +9,8 @@ router.get("/", notificationController.getNotifications);
 router.post("/read/:id", notificationController.markRead);
 router.post("/read-all", notificationController.markAllRead);
 
+// Room invitations actions
+router.post("/room-invite/accept", notificationController.acceptRoomInvite);
+router.post("/room-invite/reject", notificationController.rejectRoomInvite);
+
 module.exports = router;

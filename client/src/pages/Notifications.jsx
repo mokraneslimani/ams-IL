@@ -4,7 +4,7 @@ import "./Notifications.css";
 
 export default function Notifications() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,6 +63,34 @@ export default function Notifications() {
     }
   };
 
+  const actOnRoomInvite = async (notificationId, action, roomId) => {
+    try {
+      const endpoint =
+        action === "accept"
+          ? "room-invite/accept"
+          : "room-invite/reject";
+
+      const res = await authFetch(
+        `http://localhost:5000/api/notifications/${endpoint}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ notificationId }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Action invitation échouée");
+
+      if (action === "accept" && data.roomId) {
+        navigate(`/room/${data.roomId}`);
+      } else {
+        loadNotifications();
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   useEffect(() => {
     loadNotifications();
   }, []);
@@ -75,6 +103,56 @@ export default function Notifications() {
       </div>
     );
   }
+
+  const renderNotification = (n) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(n.message);
+    } catch {
+      parsed = null;
+    }
+
+    if (parsed && parsed.type === "room_invite") {
+      return (
+        <div className="notif-body">
+          <p className="notif-title">Invitation à rejoindre la room {parsed.roomId}</p>
+          <span className="notif-time">
+            {n.created_at ? new Date(n.created_at).toLocaleString("fr-FR") : ""}
+          </span>
+          <div className="notif-actions">
+            <button onClick={() => actOnRoomInvite(n.id, "accept", parsed.roomId)}>
+              Accepter
+            </button>
+            <button onClick={() => actOnRoomInvite(n.id, "reject", parsed.roomId)}>
+              Refuser
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (parsed && parsed.type === "room_invite_response") {
+      return (
+        <div className="notif-body">
+          <p className="notif-title">
+            Réponse à ton invitation room {parsed.roomId} : {parsed.status}
+          </p>
+          <span className="notif-time">
+            {n.created_at ? new Date(n.created_at).toLocaleString("fr-FR") : ""}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="notif-body">
+        <p className="notif-title">{n.message}</p>
+        <span className="notif-time">
+          {n.created_at ? new Date(n.created_at).toLocaleString("fr-FR") : ""}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="notif-page">
@@ -106,27 +184,31 @@ export default function Notifications() {
             <p>Chargement...</p>
           ) : (
             <ul>
-              {items.map((n) => (
-                <li
-                  key={n.id}
-                  className={`notif-item ${n.is_read ? "read" : "unread"}`}
-                  onClick={() => !n.is_read && markRead(n.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className="notif-icon">🔔</div>
-
-                  <div className="notif-body">
-                    <p className="notif-title">{n.message}</p>
-                    <span className="notif-time">
-                      {n.created_at
-                        ? new Date(n.created_at).toLocaleString("fr-FR")
-                        : ""}
-                    </span>
-                  </div>
-
-                  {!n.is_read && <span className="notif-dot" />}
-                </li>
-              ))}
+              {items.map((n) => {
+                const parsed = (() => {
+                  try {
+                    return JSON.parse(n.message);
+                  } catch {
+                    return null;
+                  }
+                })();
+                return (
+                  <li
+                    key={n.id}
+                    className={`notif-item ${n.is_read ? "read" : "unread"}`}
+                  >
+                    <div className="notif-icon">🔔</div>
+                    {renderNotification(n)}
+                    {!n.is_read && (
+                      <span
+                        className="notif-dot"
+                        onClick={() => markRead(n.id)}
+                        style={{ cursor: "pointer" }}
+                      />
+                    )}
+                  </li>
+                );
+              })}
               {items.length === 0 && !loading && <p>Aucune notification.</p>}
             </ul>
           )}
@@ -135,8 +217,8 @@ export default function Notifications() {
         <aside className="card notif-side">
           <h3>Astuce</h3>
           <p>
-            Clique sur une notification pour la marquer comme lue, ou utilise le bouton
-            "Tout marquer comme lu" pour tout passer en lu.
+            Clique sur une invitation pour l’accepter ou la refuser. Tu seras
+            redirigé vers la room si tu acceptes.
           </p>
         </aside>
       </main>

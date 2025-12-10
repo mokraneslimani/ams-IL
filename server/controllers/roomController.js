@@ -70,6 +70,19 @@ exports.removeMember = async (req, res) => {
 };
 
 // ===============================
+//   GET MEMBERS
+// ===============================
+exports.getMembers = async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const members = await roomService.getMembers(roomId);
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ===============================
 //   INVITE FRIENDS (notifications)
 // ===============================
 exports.inviteFriends = async (req, res) => {
