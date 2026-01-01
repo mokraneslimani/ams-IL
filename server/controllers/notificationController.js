@@ -1,4 +1,5 @@
 const notificationService = require("../services/notificationService");
+const roomService = require("../services/roomService");
 
 exports.getNotifications = async (req, res) => {
   try {
@@ -55,7 +56,10 @@ exports.acceptRoomInvite = async (req, res) => {
     await notificationService.markRead(notificationId, userId);
 
     // ajouter le membre dans la room
-    const roomMember = await require("../services/roomService").safeAddMember(payload.roomId, userId);
+    const roomMember = await roomService.safeAddMember(payload.roomId, userId);
+
+    // recuperer la room apres ajout (acces valide)
+    const room = await roomService.getRoomByIdWithAccess(payload.roomId, userId);
 
     // notifier l'invitant
     if (payload.inviterId) {
@@ -70,7 +74,7 @@ exports.acceptRoomInvite = async (req, res) => {
       );
     }
 
-    res.json({ roomId: payload.roomId, member: roomMember });
+    res.json({ roomId: payload.roomId, room, member: roomMember });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
