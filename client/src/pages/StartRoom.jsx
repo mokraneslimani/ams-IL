@@ -129,11 +129,16 @@ export default function StartRoom() {
       }
 
       // conserver la room active pour y revenir facilement
-      const roomInfo = { id: data.id, name: data.name || roomConfig.roomName };
+      const roomInfo = {
+        id: data.id,
+        name: data.name || roomConfig.roomName,
+        link: data.link || "",
+      };
       setActiveRoom(roomInfo);
       localStorage.setItem("activeRoom", JSON.stringify(roomInfo));
 
-      navigate(`/room/${data.id}`);
+      const joinSlug = data.link || data.id;
+      navigate(`/room/${joinSlug}`);
 
     } catch (err) {
       setErrorMsg(err.message);

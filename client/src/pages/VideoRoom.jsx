@@ -6,6 +6,7 @@ const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 
 export default function VideoRoom() {
   const { roomId } = useParams(); // /room/:roomId
+  const [effectiveRoomId, setEffectiveRoomId] = useState(roomId);
 
   // Profil / utilisateur courant
   const [profile, setProfile] = useState({ username: "mon_pseudo", avatar: DEFAULT_AVATAR });
@@ -27,8 +28,12 @@ export default function VideoRoom() {
   ]);
 
   // Infos room
-  const [roomInfo, setRoomInfo] = useState({ id: roomId || "room", name: "Room" });
+  const [roomInfo, setRoomInfo] = useState({ id: roomId || "room", name: "Room", link: "" });
   const [roomError, setRoomError] = useState("");
+
+  useEffect(() => {
+    setEffectiveRoomId(roomId);
+  }, [roomId]);
 
   // Video
   const [videoUrlInput, setVideoUrlInput] = useState("");
@@ -108,17 +113,62 @@ export default function VideoRoom() {
   useEffect(() => {
     if (!roomId) return;
     const loadRoom = async () => {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       try {
-        const res = await fetch(`http://localhost:5000/api/rooms/${roomId}`);
+        let res = await fetch(`http://localhost:5000/api/rooms/${roomId}`, { headers });
         if (!res.ok) {
-          throw new Error("Room introuvable");
+          const linkRes = await fetch(`http://localhost:5000/api/rooms/link/${roomId}`);
+          if (!linkRes.ok) {
+            throw new Error(res.status === 401 ? "Connexion requise" : "Room introuvable");
+          }
+
+          const roomByLink = await linkRes.json();
+          setEffectiveRoomId(roomByLink.id);
+          setRoomInfo({
+            id: roomByLink.id,
+            name: roomByLink.name || "Room sans nom",
+            description: roomByLink.description || "",
+            link: roomByLink.link || "",
+          });
+
+          setCurrentVideo({
+            url: roomByLink.video_url || "",
+            title: roomByLink.name || "",
+          });
+
+          if (!token) {
+            setRoomError("Connexion requise pour rejoindre cette room");
+            return;
+          }
+
+          const joinRes = await fetch(
+            `http://localhost:5000/api/rooms/link/${roomId}/join`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!joinRes.ok) {
+            const data = await joinRes.json().catch(() => ({}));
+            throw new Error(data.message || "Impossible de rejoindre la room");
+          }
+
+          return;
         }
+
         const room = await res.json();
 
+        setEffectiveRoomId(room.id);
         setRoomInfo({
           id: room.id,
           name: room.name || "Room sans nom",
           description: room.description || "",
+          link: room.link || "",
         });
 
         setCurrentVideo({
@@ -134,10 +184,10 @@ export default function VideoRoom() {
 
   // Historique
   useEffect(() => {
-    if (!roomId) return;
+    if (!effectiveRoomId) return;
     const loadHistory = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/history/${roomId}`);
+        const res = await fetch(`http://localhost:5000/api/history/${effectiveRoomId}`);
         if (!res.ok) {
           throw new Error("Erreur lors du chargement de l'historique");
         }
@@ -156,15 +206,15 @@ export default function VideoRoom() {
       }
     };
     loadHistory();
-  }, [roomId]);
+  }, [effectiveRoomId]);
 
   // Members
   useEffect(() => {
-    if (!roomId) return;
+    if (!effectiveRoomId) return;
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     const loadMembers = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/rooms/${roomId}/members`, {
+        const res = await fetch(`http://localhost:5000/api/rooms/${effectiveRoomId}/members`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Impossible de charger les membres");
@@ -181,7 +231,7 @@ export default function VideoRoom() {
       }
     };
     loadMembers();
-  }, [roomId]);
+  }, [effectiveRoomId]);
 
   // Friends list (for invites)
   useEffect(() => {
@@ -253,12 +303,12 @@ export default function VideoRoom() {
 
   const sendInvites = async () => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    if (!roomId || selectedFriends.length === 0) {
+    if (!effectiveRoomId || selectedFriends.length === 0) {
       setInviteStatus("Selectionne au moins un ami.");
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/rooms/${roomId}/invite`, {
+      const res = await fetch(`http://localhost:5000/api/rooms/${effectiveRoomId}/invite`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -275,7 +325,7 @@ export default function VideoRoom() {
     }
   };
 
-  const roomLink = `${window.location.origin}/room/${roomId}`;
+  const roomLink = `${window.location.origin}/room/${roomInfo.link || roomInfo.id || roomId}`;
   const copyLink = () => {
     navigator.clipboard.writeText(roomLink);
     setInviteStatus("Lien copie !");
