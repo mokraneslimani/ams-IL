@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
+import { io } from "socket.io-client";
 import "./VideoRoom.css";
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
@@ -44,6 +45,7 @@ export default function VideoRoom() {
 
   // Participants
   const [participants, setParticipants] = useState([]);
+  const socketRef = useRef(null);
 
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
@@ -210,29 +212,62 @@ export default function VideoRoom() {
   }, [effectiveRoomId]);
 
   // Members
-  useEffect(() => {
+  const loadMembers = useCallback(async () => {
     if (!effectiveRoomId) return;
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    const loadMembers = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/rooms/${effectiveRoomId}/members`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Impossible de charger les membres");
-        const data = await res.json();
-        const mapped = data.map((m) => ({
-          id: m.id || m.user_id || Math.random(),
-          username: m.username || m.email || "user",
-          avatar: m.avatar || DEFAULT_AVATAR,
-          initials: (m.username || m.email || "U").slice(0, 1).toUpperCase(),
-        }));
-        setParticipants(mapped);
-      } catch (err) {
-        console.error(err);
+    if (!token) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/rooms/${effectiveRoomId}/members`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Impossible de charger les membres");
+      const data = await res.json();
+      const mapped = data.map((m) => ({
+        id: m.id || m.user_id || Math.random(),
+        username: m.username || m.email || "user",
+        avatar: m.avatar || DEFAULT_AVATAR,
+        initials: (m.username || m.email || "U").slice(0, 1).toUpperCase(),
+      }));
+      setParticipants(mapped);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [effectiveRoomId]);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  // Live participants via socket
+  useEffect(() => {
+    if (!effectiveRoomId) return;
+
+    if (!socketRef.current) {
+      socketRef.current = io("http://localhost:5000");
+    }
+
+    const socket = socketRef.current;
+    socket.emit("join_room", String(effectiveRoomId));
+
+    const handleParticipantsUpdate = () => {
+      loadMembers();
+    };
+
+    socket.on("participants_update", handleParticipantsUpdate);
+
+    return () => {
+      socket.off("participants_update", handleParticipantsUpdate);
+    };
+  }, [effectiveRoomId, loadMembers]);
+
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
-    loadMembers();
-  }, [effectiveRoomId]);
+  }, []);
 
   // Messages (persisted)
   useEffect(() => {
