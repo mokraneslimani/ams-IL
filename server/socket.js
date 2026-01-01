@@ -13,6 +13,7 @@
 //
 // ==============================================
 const historyService = require("./services/historyService");
+const messageService = require("./services/messageService");
 
 module.exports = function (io) {
 
@@ -110,9 +111,20 @@ socket.on("change_video", async (data) => {
         // ------------------------------------------
         // 💬 Chat en temps réel
         // ------------------------------------------
-        socket.on("chat_message", (data) => {
-            console.log(`💬 Message room ${data.roomId} : ${data.username} → ${data.message}`);
+        socket.on("chat_message", async (data) => {
+            console.log(`?Y'? Message room ${data.roomId} : ${data.username} ??' ${data.message}`);
             io.to(data.roomId).emit("chat_message", data);
+
+            try {
+                const roomId = data.roomId;
+                const userId = data.userId || data.user_id;
+                const content = data.message || data.content;
+                if (roomId && userId && content) {
+                    await messageService.create(roomId, userId, content);
+                }
+            } catch (err) {
+                console.error("Erreur sauvegarde message:", err.message);
+            }
         });
 
         // ------------------------------------------
