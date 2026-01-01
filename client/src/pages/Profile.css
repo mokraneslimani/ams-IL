@@ -140,6 +140,66 @@
   font-size: 18px;
 }
 
+/* ========= EDIT PROFILE FORM ========= */
+
+.profile-edit {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.profile-edit label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.profile-edit input,
+.profile-edit textarea {
+  background: #0f0f16;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.profile-edit input:focus,
+.profile-edit textarea:focus {
+  border-color: rgba(241, 196, 15, 0.7);
+  box-shadow: 0 0 0 2px rgba(241, 196, 15, 0.2);
+}
+
+.save-btn {
+  align-self: start;
+  background: var(--amber);
+  color: #000;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.save-btn:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6);
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.success-msg {
+  margin-top: 6px;
+  color: #7dffb0;
+  font-size: 13px;
+}
+
 /* ========= STATISTIQUES ========= */
 
 .stats-grid {

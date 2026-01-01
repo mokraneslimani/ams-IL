@@ -8,6 +8,14 @@ const DEFAULT_AVATAR =
 export default function Profile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const [form, setForm] = useState({
+    username: "",
+    email: "",
+    bio: "",
+    avatar: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
   const [stats, setStats] = useState({
     posts: 0,
     videosWatched: 0,
@@ -50,6 +58,13 @@ export default function Profile() {
           avatar: current.avatar || DEFAULT_AVATAR,
         });
 
+        setForm({
+          username: current.username || "",
+          email: current.email || "",
+          bio: current.bio || "",
+          avatar: current.avatar || "",
+        });
+
         setStats({
           posts: 5,
           videosWatched: 42,
@@ -81,6 +96,74 @@ export default function Profile() {
     navigate("/login");
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) {
+      setErrorMsg("Non connecte");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/users/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: form.username,
+          email: form.email,
+          bio: form.bio,
+          avatar: form.avatar,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Erreur lors de la mise a jour");
+      }
+
+      const updated = await res.json();
+
+      setProfile({
+        username: updated.username,
+        fullName: updated.username || updated.email,
+        email: updated.email,
+        location: profile?.location || "France",
+        bio: updated.bio || "",
+        avatar: updated.avatar || DEFAULT_AVATAR,
+      });
+
+      setForm({
+        username: updated.username || "",
+        email: updated.email || "",
+        bio: updated.bio || "",
+        avatar: updated.avatar || "",
+      });
+
+      setSuccessMsg("Profil mis a jour.");
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatarPreview =
+    form.avatar && form.avatar.trim() !== ""
+      ? form.avatar.trim()
+      : profile.avatar || DEFAULT_AVATAR;
+
   return (
     <div className="profile-page">
 
@@ -94,7 +177,7 @@ export default function Profile() {
 
         <div className="avatar-container">
           <img
-            src={profile.avatar || DEFAULT_AVATAR}
+            src={avatarPreview}
             alt="avatar"
             className="profile-avatar"
           />
@@ -116,6 +199,53 @@ export default function Profile() {
           <p><strong>Email :</strong> {profile.email}</p>
           <p><strong>Localisation :</strong> {profile.location}</p>
           <p><strong>Bio :</strong> {profile.bio}</p>
+
+          <form className="profile-edit" onSubmit={handleSave}>
+            <label>
+              Username
+              <input
+                type="text"
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+              />
+            </label>
+
+            <label>
+              Avatar URL
+              <input
+                type="text"
+                name="avatar"
+                value={form.avatar}
+                onChange={handleChange}
+              />
+            </label>
+
+            <label>
+              Bio
+              <textarea
+                name="bio"
+                rows="3"
+                value={form.bio}
+                onChange={handleChange}
+              />
+            </label>
+
+            <button type="submit" className="save-btn" disabled={saving}>
+              {saving ? "Enregistrement..." : "Enregistrer"}
+            </button>
+            {successMsg && <p className="success-msg">{successMsg}</p>}
+          </form>
         </div>
 
         <div className="card stats-card">
