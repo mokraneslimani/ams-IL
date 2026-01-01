@@ -31,6 +31,23 @@ exports.getUser = async (req, res) => {
 };
 
 // ===============================
+//   UPDATE PROFILE (CURRENT USER)
+// ===============================
+exports.updateProfile = async (req, res) => {
+  try {
+    const updated = await userService.updateUserProfile(req.userId, req.body);
+
+    if (!updated) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// ===============================
 //   CREATE USER
 // ===============================
 exports.addUser = async (req, res) => {
