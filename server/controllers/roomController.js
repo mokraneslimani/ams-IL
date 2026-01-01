@@ -1,14 +1,19 @@
 const roomService = require("../services/roomService");
 
+const handleError = (res, err, fallbackStatus = 500) => {
+  const status = err.status || fallbackStatus;
+  return res.status(status).json({ message: err.message });
+};
+
 // ===============================
 //   GET ALL ROOMS
 // ===============================
 exports.getAllRooms = async (req, res) => {
   try {
-    const rooms = await roomService.getAllRooms();
+    const rooms = await roomService.getAllRooms(req.userId);
     res.json(rooms);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
   }
 };
 
@@ -17,13 +22,28 @@ exports.getAllRooms = async (req, res) => {
 // ===============================
 exports.getRoomById = async (req, res) => {
   try {
-    const room = await roomService.getRoomById(req.params.id);
+    const room = await roomService.getRoomByIdWithAccess(req.params.id, req.userId);
     if (!room) {
       return res.status(404).json({ message: "Room introuvable" });
     }
     res.json(room);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
+  }
+};
+
+// ===============================
+//   GET ROOM BY LINK
+// ===============================
+exports.getRoomByLink = async (req, res) => {
+  try {
+    const room = await roomService.getRoomByLink(req.params.link);
+    if (!room) {
+      return res.status(404).json({ message: "Room introuvable" });
+    }
+    res.json(room);
+  } catch (err) {
+    handleError(res, err);
   }
 };
 
@@ -32,40 +52,50 @@ exports.getRoomById = async (req, res) => {
 // ===============================
 exports.createRoom = async (req, res) => {
   try {
-    const newRoom = await roomService.createRoom(req.body);
+    const newRoom = await roomService.createRoom({
+      ...req.body,
+      owner_id: req.userId,
+    });
     res.status(201).json(newRoom);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
   }
 };
 
 // ===============================
-//   ADD MEMBER
+//   ADD MEMBER (owner only)
 // ===============================
 exports.addMember = async (req, res) => {
   try {
     const roomId = req.params.id;
     const { userId } = req.body;
 
-    const result = await roomService.addMember(roomId, userId);
+    if (!userId) {
+      return res.status(400).json({ message: "userId requis" });
+    }
+
+    const result = await roomService.addMember(roomId, req.userId, userId);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
   }
 };
 
 // ===============================
-//   REMOVE MEMBER
+//   REMOVE MEMBER (owner or self)
 // ===============================
 exports.removeMember = async (req, res) => {
   try {
     const roomId = req.params.id;
     const userId = req.params.userId;
 
-    const result = await roomService.removeMember(roomId, userId);
+    const result = await roomService.removeMember(roomId, req.userId, userId);
+    if (!result) {
+      return res.status(404).json({ message: "Membre introuvable" });
+    }
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
   }
 };
 
@@ -75,10 +105,22 @@ exports.removeMember = async (req, res) => {
 exports.getMembers = async (req, res) => {
   try {
     const roomId = req.params.id;
-    const members = await roomService.getMembers(roomId);
+    const members = await roomService.getMembers(roomId, req.userId);
     res.json(members);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err);
+  }
+};
+
+// ===============================
+//   JOIN ROOM BY LINK
+// ===============================
+exports.joinRoomByLink = async (req, res) => {
+  try {
+    const result = await roomService.joinRoomByLink(req.params.link, req.userId);
+    res.json(result);
+  } catch (err) {
+    handleError(res, err);
   }
 };
 
@@ -97,10 +139,10 @@ exports.inviteFriends = async (req, res) => {
     const result = await roomService.inviteFriends({
       roomId,
       inviterId: req.userId,
-      friendIds
+      friendIds,
     });
     res.json({ success: true, invitations: result });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    handleError(res, err, 400);
   }
 };

@@ -9,6 +9,24 @@ const Room = {
     return db.query("SELECT * FROM rooms ORDER BY created_at DESC");
   },
 
+  // R??cup??rer toutes les rooms publiques
+  getPublicRooms() {
+    return db.query("SELECT * FROM rooms WHERE privacy = 'public' ORDER BY created_at DESC");
+  },
+
+  // R??cup??rer les rooms accessibles par un user
+  getRoomsForUser(userId) {
+    const query = `
+      SELECT r.*
+      FROM rooms r
+      LEFT JOIN room_members rm ON rm.room_id = r.id
+      WHERE r.privacy = 'public' OR r.owner_id = $1 OR rm.user_id = $1
+      GROUP BY r.id
+      ORDER BY r.created_at DESC`;
+
+    return db.query(query, [userId]);
+  },
+
   // Récupérer une room par ID
   getRoomById(id) {
     return db.query("SELECT * FROM rooms WHERE id = $1", [id]);
