@@ -46,8 +46,9 @@ export default function VideoRoom() {
   const [participants, setParticipants] = useState([]);
 
   // Chat
-  const [chatMessages, setChatMessages] = useState([{ id: 1, author: "System", text: "Bienvenue dans la room !" }]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [chatError, setChatError] = useState("");
 
   // Invites / friends
   const [friends, setFriends] = useState([]);
@@ -233,6 +234,37 @@ export default function VideoRoom() {
     loadMembers();
   }, [effectiveRoomId]);
 
+  // Messages (persisted)
+  useEffect(() => {
+    if (!effectiveRoomId) return;
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const loadMessages = async () => {
+      setChatError("");
+      try {
+        const res = await fetch(`http://localhost:5000/api/messages/${effectiveRoomId}?limit=200`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Impossible de charger le chat");
+        const data = await res.json();
+        const mapped = data.map((m) => ({
+          id: m.id,
+          author: m.username || m.email || "user",
+          text: m.content,
+          avatar: m.avatar,
+        }));
+        setChatMessages(
+          mapped.length > 0
+            ? mapped
+            : [{ id: "system", author: "System", text: "Bienvenue dans la room !" }]
+        );
+      } catch (err) {
+        setChatError(err.message);
+        setChatMessages([{ id: "system", author: "System", text: "Bienvenue dans la room !" }]);
+      }
+    };
+    loadMessages();
+  }, [effectiveRoomId]);
+
   // Friends list (for invites)
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -290,11 +322,39 @@ export default function VideoRoom() {
     ]);
   };
 
-  const sendMessage = () => {
-    if (!chatInput.trim()) return;
-    const newMsg = { id: Date.now(), author: profile.username, text: chatInput.trim() };
-    setChatMessages((prev) => [...prev, newMsg]);
-    setChatInput("");
+  const sendMessage = async () => {
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) {
+      setChatError("Connexion requise pour envoyer un message");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/messages/${effectiveRoomId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: trimmed }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Envoi du message echoue");
+
+      const newMsg = {
+        id: data.id || Date.now(),
+        author: profile.username || "user",
+        text: data.content || trimmed,
+      };
+      setChatMessages((prev) => [...prev, newMsg]);
+      setChatInput("");
+      setChatError("");
+    } catch (err) {
+      setChatError(err.message);
+    }
   };
 
   const toggleFriend = (id) => {
@@ -533,6 +593,7 @@ export default function VideoRoom() {
 
           <section className="chat-section">
             <h3>Chat</h3>
+            {chatError && <p className="auth-error">{chatError}</p>}
             <div className="chat-messages">
               {chatMessages.map((msg) => (
                 <p key={msg.id}>
