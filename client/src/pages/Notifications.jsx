@@ -81,8 +81,9 @@ export default function Notifications() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Action invitation échouée");
 
-      if (action === "accept" && data.roomId) {
-        navigate(`/room/${data.roomId}`);
+      if (action === "accept" && data.room) {
+        const joinSlug = data.room.link || data.room.id || data.roomId;
+        navigate(`/room/${joinSlug}`);
       } else {
         loadNotifications();
       }
