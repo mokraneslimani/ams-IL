@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import "./VideoRoom.css";
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 
 export default function VideoRoom() {
+  const navigate = useNavigate();
   const { roomId } = useParams(); // /room/:roomId
   const [effectiveRoomId, setEffectiveRoomId] = useState(roomId);
 
@@ -36,6 +37,14 @@ export default function VideoRoom() {
     setEffectiveRoomId(roomId);
   }, [roomId]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("userId");
+    navigate("/login");
+  };
+
   // Video
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [currentVideo, setCurrentVideo] = useState({ url: "", title: "" });
@@ -46,11 +55,18 @@ export default function VideoRoom() {
   // Participants
   const [participants, setParticipants] = useState([]);
   const socketRef = useRef(null);
+  const changeVideoRef = useRef(false);
+  const playlistUpdateRef = useRef(false);
 
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatError, setChatError] = useState("");
+
+  // Playlist
+  const [playlistItems, setPlaylistItems] = useState([]);
+  const [playlistUrl, setPlaylistUrl] = useState("");
+  const [playlistTitle, setPlaylistTitle] = useState("");
 
   // Invites / friends
   const [friends, setFriends] = useState([]);
@@ -195,13 +211,23 @@ export default function VideoRoom() {
           throw new Error("Erreur lors du chargement de l'historique");
         }
         const data = await res.json();
-        const mapped = data.map((item) => ({
-          id: item.id,
-          title: item.title || "Video",
-          category: "Historique",
-          views: item.created_at ? new Date(item.created_at).toLocaleString("fr-FR") : "",
-          thumbnail: item.thumbnail,
-          videoUrl: item.video_url,
+        const mapped = await Promise.all(data.map(async (item) => {
+          const fallbackThumb = item.thumbnail || getYouTubeThumb(item.video_url);
+          let title = item.title;
+          let thumbnail = item.thumbnail || "";
+          if (!title || !thumbnail) {
+            const meta = await fetchYouTubeMeta(item.video_url);
+            title = title || meta.title || "Video YouTube";
+            thumbnail = thumbnail || meta.thumbnail || fallbackThumb;
+          }
+          return {
+            id: item.id,
+            title: title || "Video",
+            category: "Historique",
+            views: item.created_at ? new Date(item.created_at).toLocaleString("fr-FR") : "",
+            thumbnail: thumbnail || fallbackThumb,
+            videoUrl: item.video_url,
+          };
         }));
         setHistory(mapped);
       } catch (err) {
@@ -261,6 +287,56 @@ export default function VideoRoom() {
   }, [effectiveRoomId, loadMembers]);
 
   useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    const socket = socketRef.current;
+
+    const handlePlaylistUpdate = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      playlistUpdateRef.current = true;
+      setPlaylistItems(Array.isArray(data.items) ? data.items : []);
+    };
+
+    socket.on("playlist_update", handlePlaylistUpdate);
+
+    return () => {
+      socket.off("playlist_update", handlePlaylistUpdate);
+    };
+  }, [effectiveRoomId]);
+
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    const socket = socketRef.current;
+
+    const handleChangeVideo = async (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      const url = data.videoUrl || "";
+      if (!url) return;
+      changeVideoRef.current = true;
+      const meta = await fetchYouTubeMeta(url);
+      const title = data.title || meta.title || "Video YouTube";
+      const thumbnail = meta.thumbnail || getYouTubeThumb(url);
+      setCurrentVideo({ url, title });
+      setHistory((prev) => [
+        {
+          id: Date.now(),
+          title,
+          category: data.category || "Synchro",
+          views: new Date().toLocaleString("fr-FR"),
+          thumbnail,
+          videoUrl: url,
+        },
+        ...prev,
+      ]);
+    };
+
+    socket.on("change_video", handleChangeVideo);
+
+    return () => {
+      socket.off("change_video", handleChangeVideo);
+    };
+  }, [effectiveRoomId]);
+
+  useEffect(() => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -299,6 +375,35 @@ export default function VideoRoom() {
     };
     loadMessages();
   }, [effectiveRoomId]);
+
+  const playlistStorageKey = effectiveRoomId ? `playlist:${effectiveRoomId}` : "";
+
+  useEffect(() => {
+    if (!playlistStorageKey) return;
+    try {
+      const stored = localStorage.getItem(playlistStorageKey);
+      setPlaylistItems(stored ? JSON.parse(stored) : []);
+    } catch {
+      setPlaylistItems([]);
+    }
+  }, [playlistStorageKey]);
+
+  useEffect(() => {
+    if (!playlistStorageKey) return;
+    localStorage.setItem(playlistStorageKey, JSON.stringify(playlistItems));
+  }, [playlistItems, playlistStorageKey]);
+
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    if (playlistUpdateRef.current) {
+      playlistUpdateRef.current = false;
+      return;
+    }
+    socketRef.current.emit("playlist_update", {
+      roomId: String(effectiveRoomId),
+      items: playlistItems,
+    });
+  }, [playlistItems, effectiveRoomId]);
 
   // Friends list (for invites)
   useEffect(() => {
@@ -346,15 +451,65 @@ export default function VideoRoom() {
     }
   };
 
+  const getYouTubeId = (url) => {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      if (u.searchParams.get("v")) return u.searchParams.get("v");
+      if (u.hostname.includes("youtu.be")) {
+        return u.pathname.replace("/", "");
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
+
+  const getYouTubeThumb = (url) => {
+    const id = getYouTubeId(url);
+    return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+  };
+
+  const fetchYouTubeMeta = async (url) => {
+    try {
+      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+      if (!res.ok) throw new Error("oembed");
+      const data = await res.json();
+      return { title: data.title, thumbnail: data.thumbnail_url };
+    } catch {
+      return { title: "", thumbnail: getYouTubeThumb(url) };
+    }
+  };
+
   // --------- Actions ----------
 
-  const loadVideo = () => {
-    if (!videoUrlInput) return;
-    setCurrentVideo({ url: videoUrlInput, title: "Nouvelle video" });
+  const syncChangeVideo = async (url, category) => {
+    const meta = await fetchYouTubeMeta(url);
+    const title = meta.title || "Nouvelle video";
+    const thumbnail = meta.thumbnail || getYouTubeThumb(url);
+
+    setCurrentVideo({ url, title });
     setHistory((prev) => [
-      { id: Date.now(), title: "Nouvelle video", category: "Custom", views: "N/A", videoUrl: videoUrlInput },
+      { id: Date.now(), title, category, views: "N/A", thumbnail, videoUrl: url },
       ...prev,
     ]);
+
+    if (socketRef.current && !changeVideoRef.current) {
+      socketRef.current.emit("change_video", {
+        roomId: String(effectiveRoomId),
+        videoId: getYouTubeId(url),
+        videoUrl: url,
+        title,
+        category,
+      });
+    }
+    changeVideoRef.current = false;
+  };
+
+  const loadVideo = async () => {
+    const url = videoUrlInput.trim();
+    if (!url) return;
+    await syncChangeVideo(url, "Custom");
   };
 
   const sendMessage = async () => {
@@ -390,6 +545,29 @@ export default function VideoRoom() {
     } catch (err) {
       setChatError(err.message);
     }
+  };
+
+  const addToPlaylist = async () => {
+    const url = playlistUrl.trim();
+    if (!url) return;
+    const meta = await fetchYouTubeMeta(url);
+    const item = {
+      id: Date.now(),
+      title: (playlistTitle || meta.title || "Video YouTube").trim(),
+      url,
+      thumbnail: meta.thumbnail || getYouTubeThumb(url),
+    };
+    setPlaylistItems((prev) => [...prev, item]);
+    setPlaylistUrl("");
+    setPlaylistTitle("");
+  };
+
+  const removeFromPlaylist = (id) => {
+    setPlaylistItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const playFromPlaylist = async (item) => {
+    await syncChangeVideo(item.url, "Playlist");
   };
 
   const toggleFriend = (id) => {
@@ -438,6 +616,7 @@ export default function VideoRoom() {
             Room : <strong>{roomError ? "Room inconnue" : roomInfo.name}</strong>
           </span>
           <input className="search-input" type="text" placeholder="Rechercher..." />
+          <button className="btn-logout" onClick={handleLogout}>Deconnexion</button>
         </div>
       </header>
 
@@ -592,8 +771,16 @@ export default function VideoRoom() {
             <div className="history-list">
               {history.length === 0 && <p className="placeholder">Aucun historique pour cette room.</p>}
               {history.map((item) => (
-                <div key={item.id} className="history-card">
-                  <div className="thumb-placeholder"></div>
+                <div
+                  key={item.id}
+                  className="history-card"
+                  onClick={() => syncChangeVideo(item.videoUrl, "Historique")}
+                >
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt={item.title} className="thumb-image" />
+                  ) : (
+                    <div className="thumb-placeholder"></div>
+                  )}
                   <div className="history-info">
                     <h4>{item.title}</h4>
                     <p>{item.category}</p>
@@ -624,6 +811,46 @@ export default function VideoRoom() {
               ))}
               {participants.length === 0 && <p className="placeholder">Aucun membre pour l'instant.</p>}
             </div>
+          </section>
+
+          <section className="playlist-section">
+            <h3>Playlist</h3>
+            <div className="playlist-inputs">
+              <input
+                type="text"
+                placeholder="URL YouTube"
+                value={playlistUrl}
+                onChange={(e) => setPlaylistUrl(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Titre (optionnel)"
+                value={playlistTitle}
+                onChange={(e) => setPlaylistTitle(e.target.value)}
+              />
+              <button onClick={addToPlaylist}>Ajouter</button>
+            </div>
+            <ul className="playlist-list">
+              {playlistItems.map((item) => (
+                <li key={item.id} className="playlist-item">
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt={item.title} />
+                  ) : (
+                    <div className="playlist-thumb-placeholder"></div>
+                  )}
+                  <div className="playlist-info">
+                    <span className="playlist-title">{item.title}</span>
+                    <div className="playlist-actions">
+                      <button onClick={() => playFromPlaylist(item)}>Lire</button>
+                      <button onClick={() => removeFromPlaylist(item.id)}>Supprimer</button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+              {playlistItems.length === 0 && (
+                <li className="playlist-empty">Ajoute des videos a ta playlist.</li>
+              )}
+            </ul>
           </section>
 
           <section className="chat-section">
