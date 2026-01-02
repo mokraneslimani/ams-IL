@@ -8,6 +8,7 @@ import Profile from "./pages/Profile";
 import StartRoom from "./pages/StartRoom";
 import Friends from "./pages/Friends";
 import Notifications from "./pages/Notifications";
+import CGU from "./pages/CGU";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -74,6 +75,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/cgu" element={<CGU />} />
       </Routes>
     </BrowserRouter>
   );

@@ -63,6 +63,28 @@ export default function Notifications() {
     }
   };
 
+  const archiveNotification = async (id) => {
+    try {
+      await authFetch(`http://localhost:5000/api/notifications/archive/${id}`, {
+        method: "POST",
+      });
+      loadNotifications();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await authFetch(`http://localhost:5000/api/notifications/${id}`, {
+        method: "DELETE",
+      });
+      loadNotifications();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const actOnRoomInvite = async (notificationId, action, roomId) => {
     try {
       const endpoint =
@@ -127,6 +149,8 @@ export default function Notifications() {
             <button onClick={() => actOnRoomInvite(n.id, "reject", parsed.roomId)}>
               Refuser
             </button>
+            <button onClick={() => archiveNotification(n.id)}>Archiver</button>
+            <button onClick={() => deleteNotification(n.id)}>Supprimer</button>
           </div>
         </div>
       );
@@ -151,6 +175,10 @@ export default function Notifications() {
         <span className="notif-time">
           {n.created_at ? new Date(n.created_at).toLocaleString("fr-FR") : ""}
         </span>
+        <div className="notif-actions">
+          <button onClick={() => archiveNotification(n.id)}>Archiver</button>
+          <button onClick={() => deleteNotification(n.id)}>Supprimer</button>
+        </div>
       </div>
     );
   };

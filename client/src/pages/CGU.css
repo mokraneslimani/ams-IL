@@ -1,0 +1,59 @@
+:root {
+  --cgu-bg: #080810;
+  --cgu-card: #11111a;
+  --cgu-accent: #ffbf00;
+  --cgu-text: #f1f1f1;
+  --cgu-muted: #b3b3c9;
+}
+
+.cgu-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at 10% 0%, #1d1d2f, #050509);
+  color: var(--cgu-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 18px 24px 32px;
+}
+
+.cgu-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid #1f1f2b;
+}
+
+.cgu-back {
+  text-decoration: none;
+  color: var(--cgu-accent);
+  font-size: 14px;
+}
+
+.cgu-title {
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.cgu-card {
+  margin-top: 18px;
+  background: var(--cgu-card);
+  border: 1px solid #25253a;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.cgu-card h2 {
+  margin: 0 0 10px;
+  color: var(--cgu-accent);
+}
+
+.cgu-text {
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: var(--cgu-muted);
+  line-height: 1.6;
+}
+
+.cgu-error {
+  color: #ff7070;
+}
