@@ -87,7 +87,13 @@ socket.on("change_video", async (data) => {
     console.log("DEBUG SOCKET: Appel historyService.addHistoryEntry...");
 
     try {
-        const result = await historyService.addHistoryEntry(data.roomId, data.videoId);
+        const fallbackThumb = data.videoId ? `https://img.youtube.com/vi/${data.videoId}/hqdefault.jpg` : null;
+        const result = await historyService.addHistoryEntry({
+            roomId: data.roomId,
+            videoUrl: data.videoUrl,
+            title: data.title || null,
+            thumbnail: data.thumbnail || fallbackThumb
+        }, data.videoId);
 
         console.log("DEBUG SOCKET: Résultat historyService :", result);
 
@@ -130,7 +136,16 @@ socket.on("change_video", async (data) => {
         // ------------------------------------------
         // ❌ Déconnexion
         // ------------------------------------------
-        socket.on("disconnect", () => {
+        
+        // ------------------------------------------
+        // Playlist collaborative
+        // ------------------------------------------
+        socket.on("playlist_update", (data) => {
+            if (!data || !data.roomId) return;
+            socket.to(data.roomId).emit("playlist_update", data);
+        });
+
+socket.on("disconnect", () => {
             console.log("🔴 Déconnecté :", socket.id);
 
             for (const roomId in roomsData) {

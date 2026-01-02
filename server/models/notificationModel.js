@@ -18,13 +18,14 @@ const Notification = {
     return db.query(query, [id]);
   },
 
-  async getByUser(userId) {
+  async getByUser(userId, includeArchived = false) {
     const query = `
       SELECT * FROM notifications
       WHERE user_id = $1
+        AND ($2::boolean = TRUE OR is_archived = FALSE)
       ORDER BY created_at DESC
     `;
-    return db.query(query, [userId]);
+    return db.query(query, [userId, includeArchived]);
   },
 
   async markRead(id, userId) {
@@ -44,6 +45,25 @@ const Notification = {
       WHERE user_id = $1
     `;
     return db.query(query, [userId]);
+  },
+
+  async archive(id, userId) {
+    const query = `
+      UPDATE notifications
+      SET is_archived = TRUE
+      WHERE id = $1 AND user_id = $2
+      RETURNING *
+    `;
+    return db.query(query, [id, userId]);
+  },
+
+  async delete(id, userId) {
+    const query = `
+      DELETE FROM notifications
+      WHERE id = $1 AND user_id = $2
+      RETURNING *
+    `;
+    return db.query(query, [id, userId]);
   },
 };
 

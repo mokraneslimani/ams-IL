@@ -3,7 +3,7 @@ const User = require("../models/userModel");
 const notificationService = require("./notificationService");
 
 const friendService = {
-  async listAllForUser(userId) {
+  async listAllForUser(userId, search) {
     const [friends, pendingReceived, pendingSent, suggestions] = await Promise.all([
       Friend.getFriends(userId),
       Friend.getPendingReceived(userId),
@@ -11,12 +11,29 @@ const friendService = {
       Friend.getSuggestions(userId, 5),
     ]);
 
-    return {
+    let result = {
       friends: friends.rows,
       pendingReceived: pendingReceived.rows,
       pendingSent: pendingSent.rows,
       suggestions: suggestions.rows,
     };
+
+    const q = String(search || "").trim().toLowerCase();
+    if (q) {
+      const filterByQuery = (row) => {
+        const username = String(row.username || "").toLowerCase();
+        const email = String(row.email || "").toLowerCase();
+        return username.includes(q) || email.includes(q);
+      };
+      result = {
+        friends: result.friends.filter(filterByQuery),
+        pendingReceived: result.pendingReceived.filter(filterByQuery),
+        pendingSent: result.pendingSent.filter(filterByQuery),
+        suggestions: result.suggestions.filter(filterByQuery),
+      };
+    }
+
+    return result;
   },
 
   async sendRequest(userId, targetEmail) {

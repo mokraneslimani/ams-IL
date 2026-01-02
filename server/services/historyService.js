@@ -1,22 +1,37 @@
 const History = require("../models/historyModel");
 
 const historyService = {
+    // Ajouter une entree dans l'historique
+    async addHistoryEntry(payload, videoIdLegacy) {
+        let roomId;
+        let videoUrl;
+        let title = null;
+        let thumbnail = null;
 
-    // Ajouter une entrée dans l'historique
-    async addHistoryEntry(roomId, videoId) {
-        const video_url = `https://www.youtube.com/watch?v=${videoId}`;
+        if (typeof payload === "object" && payload !== null) {
+            roomId = payload.roomId || payload.room_id;
+            videoUrl = payload.videoUrl || payload.video_url;
+            title = payload.title || null;
+            thumbnail = payload.thumbnail || null;
+        } else {
+            roomId = payload;
+        }
+
+        if (!videoUrl && videoIdLegacy) {
+            videoUrl = `https://www.youtube.com/watch?v=${videoIdLegacy}`;
+        }
 
         try {
             const result = await History.addEntry({
                 room_id: roomId,
-                video_url,
-                title: null,
-                thumbnail: null
+                video_url: videoUrl,
+                title,
+                thumbnail
             });
 
             return result.rows[0];
         } catch (err) {
-            console.error("❌ ERREUR SQL (historyService) :", err);
+            console.error("Erreur SQL (historyService) :", err);
             throw err;
         }
     },

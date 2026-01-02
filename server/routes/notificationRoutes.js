@@ -8,6 +8,8 @@ router.use(auth);
 router.get("/", notificationController.getNotifications);
 router.post("/read/:id", notificationController.markRead);
 router.post("/read-all", notificationController.markAllRead);
+router.post("/archive/:id", notificationController.archiveNotification);
+router.delete("/:id", notificationController.deleteNotification);
 
 // Room invitations actions
 router.post("/room-invite/accept", notificationController.acceptRoomInvite);

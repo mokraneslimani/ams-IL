@@ -10,8 +10,8 @@ const notificationService = {
     return rows.rows[0] || null;
   },
 
-  async list(userId) {
-    return (await Notification.getByUser(userId)).rows;
+  async list(userId, includeArchived = false) {
+    return (await Notification.getByUser(userId, includeArchived)).rows;
   },
 
   async markRead(id, userId) {
@@ -21,6 +21,14 @@ const notificationService = {
   async markAllRead(userId) {
     await Notification.markAllRead(userId);
     return true;
+  },
+
+  async archive(id, userId) {
+    return (await Notification.archive(id, userId)).rows[0];
+  },
+
+  async remove(id, userId) {
+    return (await Notification.delete(id, userId)).rows[0];
   },
 };
 

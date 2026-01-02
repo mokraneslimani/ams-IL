@@ -32,6 +32,8 @@ const historyRoutes = require("./routes/historyRoutes");
 const friendRoutes = require("./routes/friendRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const playlistRoutes = require("./routes/playlistRoutes");
+const cguRoutes = require("./routes/cguRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
@@ -39,6 +41,8 @@ app.use("/api/history", historyRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/playlists", playlistRoutes);
+app.use("/api/cgu", cguRoutes);
 
 // Test route API
 app.get("/api/test", async (req, res) => {

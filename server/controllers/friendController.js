@@ -2,7 +2,8 @@ const friendService = require("../services/friendService");
 
 exports.getFriends = async (req, res) => {
   try {
-    const data = await friendService.listAllForUser(req.userId);
+    const q = req.query.q || "";
+    const data = await friendService.listAllForUser(req.userId, q);
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
