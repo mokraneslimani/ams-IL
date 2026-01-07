@@ -8,7 +8,7 @@ const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 export default function VideoRoom() {
   const navigate = useNavigate();
   const { roomId } = useParams(); // /room/:roomId
-  const [effectiveRoomId, setEffectiveRoomId] = useState(roomId);
+  const [effectiveRoomId, setEffectiveRoomId] = useState("");
 
   // Profil / utilisateur courant
   const [profile, setProfile] = useState({ username: "mon_pseudo", avatar: DEFAULT_AVATAR });
@@ -33,9 +33,6 @@ export default function VideoRoom() {
   const [roomInfo, setRoomInfo] = useState({ id: roomId || "room", name: "Room", link: "" });
   const [roomError, setRoomError] = useState("");
 
-  useEffect(() => {
-    setEffectiveRoomId(roomId);
-  }, [roomId]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -43,6 +40,12 @@ export default function VideoRoom() {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("userId");
     navigate("/login");
+  };
+
+  const handleCloseRoom = () => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    socketRef.current.emit("close_room", String(effectiveRoomId));
+    navigate("/profile");
   };
 
   // Video
@@ -55,8 +58,16 @@ export default function VideoRoom() {
   // Participants
   const [participants, setParticipants] = useState([]);
   const socketRef = useRef(null);
+  const playerRef = useRef(null);
+  const playerContainerRef = useRef(null);
+  const ytApiReadyRef = useRef(null);
   const changeVideoRef = useRef(false);
   const playlistUpdateRef = useRef(false);
+  const isRemoteActionRef = useRef(false);
+  const selfSocketIdRef = useRef(null);
+  const hostIdRef = useRef(null);
+  const pendingSyncRef = useRef(null);
+  const lastTimeRef = useRef(0);
 
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
@@ -337,6 +348,37 @@ export default function VideoRoom() {
   }, [effectiveRoomId]);
 
   useEffect(() => {
+    if (!effectiveRoomId) return;
+    const timer = setInterval(() => {
+      const player = playerRef.current;
+      if (!player || !window.YT || typeof player.getCurrentTime !== "function") return;
+      let state;
+      try {
+        state = player.getPlayerState?.();
+      } catch {
+        return;
+      }
+      const currentTime = player.getCurrentTime();
+      if (isRemoteActionRef.current) {
+        lastTimeRef.current = currentTime;
+        return;
+      }
+      if (state === window.YT.PlayerState.PAUSED) {
+        if (Math.abs(currentTime - lastTimeRef.current) > 0.75) {
+          if (socketRef.current) {
+            socketRef.current.emit("video_seek", {
+              roomId: String(effectiveRoomId),
+              currentTime,
+            });
+          }
+        }
+      }
+      lastTimeRef.current = currentTime;
+    }, 700);
+    return () => clearInterval(timer);
+  }, [effectiveRoomId]);
+
+  useEffect(() => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -374,6 +416,31 @@ export default function VideoRoom() {
       }
     };
     loadMessages();
+  }, [effectiveRoomId]);
+
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    const socket = socketRef.current;
+
+    const handleChatMessage = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      const text = data.message || data.content || "";
+      if (!text) return;
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: data.id || Date.now(),
+          author: data.username || data.email || "user",
+          text,
+          avatar: data.avatar || "",
+        },
+      ]);
+    };
+
+    socket.on("chat_message", handleChatMessage);
+    return () => {
+      socket.off("chat_message", handleChatMessage);
+    };
   }, [effectiveRoomId]);
 
   const playlistStorageKey = effectiveRoomId ? `playlist:${effectiveRoomId}` : "";
@@ -432,25 +499,6 @@ export default function VideoRoom() {
     );
   };
 
-  const getEmbedUrl = (url) => {
-    if (!url) return "";
-    try {
-      const u = new URL(url);
-      if (!u.hostname.includes("youtube.com") && !u.hostname.includes("youtu.be")) {
-        return "";
-      }
-      let videoId = "";
-      if (u.searchParams.get("v")) videoId = u.searchParams.get("v");
-      if (!videoId && u.hostname.includes("youtu.be")) {
-        videoId = u.pathname.replace("/", "");
-      }
-      if (!videoId) return "";
-      return `https://www.youtube.com/embed/${videoId}`;
-    } catch (e) {
-      return "";
-    }
-  };
-
   const getYouTubeId = (url) => {
     if (!url) return "";
     try {
@@ -469,6 +517,221 @@ export default function VideoRoom() {
     const id = getYouTubeId(url);
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
   };
+
+  const ensureYouTubeApi = useCallback(() => {
+    if (ytApiReadyRef.current) return ytApiReadyRef.current;
+    ytApiReadyRef.current = new Promise((resolve) => {
+      if (window.YT && window.YT.Player) {
+        resolve();
+        return;
+      }
+      const existingScript = document.getElementById("youtube-iframe-api");
+      if (!existingScript) {
+        const tag = document.createElement("script");
+        tag.id = "youtube-iframe-api";
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(tag);
+      }
+      const previousReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (previousReady) previousReady();
+        resolve();
+      };
+    });
+    return ytApiReadyRef.current;
+  }, []);
+
+  const applyRemoteAction = (fn) => {
+    isRemoteActionRef.current = true;
+    try {
+      fn();
+    } finally {
+      setTimeout(() => {
+        isRemoteActionRef.current = false;
+      }, 300);
+    }
+  };
+
+  const applyPendingSync = useCallback(() => {
+    const pending = pendingSyncRef.current;
+    if (!pending || !playerRef.current) return;
+    if (typeof playerRef.current.cueVideoById !== "function") return;
+    pendingSyncRef.current = null;
+    const pendingVideoId = getYouTubeId(pending.videoUrl || "");
+    if (pendingVideoId) {
+      playerRef.current.cueVideoById(pendingVideoId);
+    }
+    if (typeof pending.currentTime === "number") {
+      applyRemoteAction(() => {
+        playerRef.current.seekTo(pending.currentTime, true);
+      });
+    }
+    if (pending.isPlaying) {
+      applyRemoteAction(() => {
+        playerRef.current.playVideo();
+      });
+    } else {
+      applyRemoteAction(() => {
+        playerRef.current.pauseVideo();
+      });
+    }
+  }, []);
+
+  const initOrUpdatePlayer = useCallback(
+    async (url) => {
+      const videoId = getYouTubeId(url);
+      if (!videoId) return;
+      await ensureYouTubeApi();
+      if (!playerContainerRef.current) return;
+      if (playerRef.current) {
+        playerRef.current.cueVideoById(videoId);
+        applyPendingSync();
+        return;
+      }
+      playerRef.current = new window.YT.Player(playerContainerRef.current, {
+        videoId,
+        playerVars: {
+          enablejsapi: 1,
+          origin: window.location.origin,
+          rel: 0,
+          modestbranding: 1,
+        },
+        events: {
+          onReady: () => {
+            if (typeof playerRef.current?.setVolume === "function") {
+              playerRef.current.setVolume(videoSettings.defaultVolume);
+            }
+            applyPendingSync();
+          },
+          onStateChange: (event) => {
+            if (!socketRef.current || !effectiveRoomId) return;
+            if (isRemoteActionRef.current) return;
+            const currentTime = playerRef.current?.getCurrentTime?.() || 0;
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              socketRef.current.emit("video_play", {
+                roomId: String(effectiveRoomId),
+                currentTime,
+              });
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+              socketRef.current.emit("video_pause", {
+                roomId: String(effectiveRoomId),
+                currentTime,
+              });
+            }
+          },
+        },
+      });
+    },
+    [applyPendingSync, ensureYouTubeApi, effectiveRoomId, videoSettings.defaultVolume]
+  );
+
+  useEffect(() => {
+    if (!currentVideo.url) return;
+    initOrUpdatePlayer(currentVideo.url);
+  }, [currentVideo.url, initOrUpdatePlayer]);
+
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    const socket = socketRef.current;
+
+    const handleConnect = () => {
+      selfSocketIdRef.current = socket.id;
+    };
+    socket.on("connect", handleConnect);
+
+    const handleHostUpdate = (hostId) => {
+      hostIdRef.current = hostId;
+    };
+    socket.on("host_update", handleHostUpdate);
+
+    const handleVideoPlay = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      if (!playerRef.current) return;
+      applyRemoteAction(() => {
+        if (typeof data.currentTime === "number") {
+          playerRef.current.seekTo(data.currentTime, true);
+        }
+        playerRef.current.playVideo();
+      });
+    };
+
+    const handleVideoPause = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      if (!playerRef.current) return;
+      applyRemoteAction(() => {
+        if (typeof data.currentTime === "number") {
+          playerRef.current.seekTo(data.currentTime, true);
+        }
+        playerRef.current.pauseVideo();
+      });
+    };
+
+    const handleVideoSeek = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      if (!playerRef.current) return;
+      applyRemoteAction(() => {
+        if (typeof data.currentTime === "number") {
+          playerRef.current.seekTo(data.currentTime, true);
+        }
+      });
+    };
+
+    const handleVideoSyncRequest = () => {
+      if (!playerRef.current || !currentVideo.url) return;
+      if (hostIdRef.current && selfSocketIdRef.current !== hostIdRef.current) return;
+      const state = playerRef.current.getPlayerState?.();
+      socket.emit("video_sync_response", {
+        roomId: String(effectiveRoomId),
+        videoUrl: currentVideo.url,
+        currentTime: playerRef.current.getCurrentTime?.() || 0,
+        isPlaying: state === window.YT?.PlayerState?.PLAYING,
+      });
+    };
+
+    const handleVideoSyncResponse = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      pendingSyncRef.current = data;
+      if (data.videoUrl && data.videoUrl !== currentVideo.url) {
+        setCurrentVideo({ url: data.videoUrl, title: currentVideo.title || "Video" });
+      } else {
+        applyPendingSync();
+      }
+    };
+
+    socket.on("video_play", handleVideoPlay);
+    socket.on("video_pause", handleVideoPause);
+    socket.on("video_seek", handleVideoSeek);
+    socket.on("video_sync_request", handleVideoSyncRequest);
+    socket.on("video_sync_response", handleVideoSyncResponse);
+
+    socket.emit("video_sync_request", String(effectiveRoomId));
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("host_update", handleHostUpdate);
+      socket.off("video_play", handleVideoPlay);
+      socket.off("video_pause", handleVideoPause);
+      socket.off("video_seek", handleVideoSeek);
+      socket.off("video_sync_request", handleVideoSyncRequest);
+    socket.off("video_sync_response", handleVideoSyncResponse);
+    };
+  }, [applyPendingSync, currentVideo.title, currentVideo.url, effectiveRoomId]);
+
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current) return;
+    const socket = socketRef.current;
+    const handleRoomClosed = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      if (data.message) {
+        window.alert(data.message);
+      }
+      navigate("/profile");
+    };
+    socket.on("room_closed", handleRoomClosed);
+    return () => {
+      socket.off("room_closed", handleRoomClosed);
+    };
+  }, [effectiveRoomId, navigate]);
 
   const fetchYouTubeMeta = async (url) => {
     try {
@@ -520,31 +783,24 @@ export default function VideoRoom() {
       setChatError("Connexion requise pour envoyer un message");
       return;
     }
-
-    try {
-      const res = await fetch(`http://localhost:5000/api/messages/${effectiveRoomId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content: trimmed }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Envoi du message echoue");
-
-      const newMsg = {
-        id: data.id || Date.now(),
-        author: profile.username || "user",
-        text: data.content || trimmed,
-      };
-      setChatMessages((prev) => [...prev, newMsg]);
-      setChatInput("");
-      setChatError("");
-    } catch (err) {
-      setChatError(err.message);
+    if (!socketRef.current || !effectiveRoomId) {
+      setChatError("Connexion temps reel indisponible");
+      return;
     }
+    const userId = localStorage.getItem("userId") || sessionStorage.getItem("userId");
+    if (!userId) {
+      setChatError("Utilisateur non connecte");
+      return;
+    }
+    socketRef.current.emit("chat_message", {
+      roomId: String(effectiveRoomId),
+      userId,
+      username: profile.username || "user",
+      avatar: profile.avatar || "",
+      message: trimmed,
+    });
+    setChatInput("");
+    setChatError("");
   };
 
   const addToPlaylist = async () => {
@@ -642,100 +898,13 @@ export default function VideoRoom() {
                 Inviter des amis
               </button>
             </li>
+            <li>
+              <button className="sidebar-action" onClick={handleCloseRoom}>
+                Quitter la room
+              </button>
+            </li>
           </ul>
 
-          <div className="sidebar-section">
-            <h4>Controles</h4>
-            {controls.map((ctrl) => (
-              <div key={ctrl.id} className="toggle-row">
-                <span>{ctrl.label}</span>
-                <input type="checkbox" checked={ctrl.enabled} onChange={() => toggleControl(ctrl.id)} />
-              </div>
-            ))}
-          </div>
-
-          <div className="sidebar-section">
-            <h4>Parametres video</h4>
-            <label className="setting-row">
-              <span>Autoplay</span>
-              <input
-                type="checkbox"
-                checked={videoSettings.autoplay}
-                onChange={(e) => setVideoSettings((p) => ({ ...p, autoplay: e.target.checked }))}
-              />
-            </label>
-            <label className="setting-row">
-              <span>Volume</span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={videoSettings.defaultVolume}
-                onChange={(e) => setVideoSettings((p) => ({ ...p, defaultVolume: Number(e.target.value) }))}
-              />
-            </label>
-            <label className="setting-row">
-              <span>Qualite</span>
-              <select
-                value={videoSettings.quality}
-                onChange={(e) => setVideoSettings((p) => ({ ...p, quality: e.target.value }))}
-              >
-                <option value="auto">Auto</option>
-                <option value="1080p">1080p</option>
-                <option value="720p">720p</option>
-                <option value="480p">480p</option>
-              </select>
-            </label>
-            <label className="setting-row">
-              <span>Synchro</span>
-              <select
-                value={videoSettings.syncMode}
-                onChange={(e) => setVideoSettings((p) => ({ ...p, syncMode: e.target.value }))}
-              >
-                <option value="strict">Host controle</option>
-                <option value="free">Libre</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="sidebar-section">
-            <h4>Parametres room</h4>
-            <label className="setting-row">
-              <span>Confidentialite</span>
-              <select
-                value={roomSettings.privacy}
-                onChange={(e) => setRoomSettings((p) => ({ ...p, privacy: e.target.value }))}
-              >
-                <option value="private">Privee</option>
-                <option value="public">Publique</option>
-              </select>
-            </label>
-            <label className="setting-row">
-              <span>Chat verrouille</span>
-              <input
-                type="checkbox"
-                checked={roomSettings.chatLocked}
-                onChange={(e) => setRoomSettings((p) => ({ ...p, chatLocked: e.target.checked }))}
-              />
-            </label>
-            <label className="setting-row">
-              <span>Max participants</span>
-              <input
-                type="number"
-                min="1"
-                value={roomSettings.maxParticipants}
-                onChange={(e) => setRoomSettings((p) => ({ ...p, maxParticipants: Number(e.target.value) }))}
-              />
-            </label>
-            <label className="setting-row">
-              <span>PIN</span>
-              <input
-                type="text"
-                value={roomSettings.pin}
-                onChange={(e) => setRoomSettings((p) => ({ ...p, pin: e.target.value }))}
-              />
-            </label>
-          </div>
         </aside>
 
         {/* Centre : video + historique */}
@@ -752,14 +921,8 @@ export default function VideoRoom() {
             </div>
 
             <div className="video-box">
-              {currentVideo.url && getEmbedUrl(currentVideo.url) ? (
-                <iframe
-                  src={getEmbedUrl(currentVideo.url)}
-                  title={currentVideo.title || "YouTube Video"}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+              {currentVideo.url && getYouTubeId(currentVideo.url) ? (
+                <div className="yt-player" ref={playerContainerRef}></div>
               ) : (
                 <p className="placeholder">Aucune video chargee.</p>
               )}

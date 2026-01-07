@@ -1,4 +1,4 @@
-// ==============================================
+﻿// ==============================================
 // 🔌 SOCKET.IO — Gestion des Rooms en temps réel
 // ==============================================
 //
@@ -45,6 +45,20 @@ module.exports = function (io) {
 
             io.to(roomId).emit("participants_update", roomsData[roomId].users);
             io.to(roomId).emit("host_update", roomsData[roomId].host);
+
+        // ------------------------------------------
+        // Fermer une room (tout le monde quitte)
+        // ------------------------------------------
+        socket.on("close_room", (roomId) => {
+            if (!roomId || !roomsData[roomId]) return;
+            console.log(`Room fermee : ${roomId}`);
+            io.to(roomId).emit("room_closed", {
+                roomId,
+                message: "La room a ete fermee par l'hote."
+            });
+            io.in(roomId).socketsLeave(roomId);
+            delete roomsData[roomId];
+        });
         });
 
         // ------------------------------------------
@@ -164,3 +178,4 @@ socket.on("disconnect", () => {
         });
     });
 };
+

@@ -1,7 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./Home.css";
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userLabel, setUserLabel] = useState("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const userId = localStorage.getItem("userId") || sessionStorage.getItem("userId");
+    if (!token || !userId) return;
+    setIsLoggedIn(true);
+
+    const loadUser = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const name = data.username || data.email || "";
+        if (name) setUserLabel(`@${name}`);
+      } catch {
+        // ignore and keep fallback label
+      }
+    };
+
+    loadUser();
+  }, []);
+
   return (
     <div className="home-wrapper">
 
@@ -10,8 +36,14 @@ export default function Home() {
         <a href="/" className="logo">CoWatch</a>
 
         <div className="nav-buttons">
-          <a href="/login" className="btn-nav">Login</a>
-          <a href="/signin" className="btn-nav btn-yellow">Sign In</a>
+          {isLoggedIn ? (
+            <a href="/profile" className="btn-nav">{userLabel || "Profil"}</a>
+          ) : (
+            <>
+              <a href="/login" className="btn-nav">Login</a>
+              <a href="/signin" className="btn-nav btn-yellow">Sign In</a>
+            </>
+          )}
         </div>
       </header>
 
