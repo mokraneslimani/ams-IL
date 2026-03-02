@@ -5,9 +5,34 @@ import "./Notifications.css";
 export default function Notifications() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const DEFAULT_AVATAR = "/avatar.svg";
+  const storedAvatar = localStorage.getItem("profileAvatar") || DEFAULT_AVATAR;
+  const storedName = localStorage.getItem("profileName") || "Utilisateur";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const normalizeAvatar = (value) => {
+    const trimmed = (value || "").trim();
+    if (!trimmed) return DEFAULT_AVATAR;
+    if (
+      trimmed === "avatar.png" ||
+      trimmed === "avatar.jpg" ||
+      trimmed === "avatar.jpeg" ||
+      trimmed === "avatar"
+    ) {
+      return DEFAULT_AVATAR;
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("data:") || trimmed.startsWith("/")) {
+      return trimmed;
+    }
+    return `/${trimmed}`;
+  };
+
+  const avatarPreview = normalizeAvatar(storedAvatar);
 
   const authFetch = async (url, options = {}) => {
     const headers = options.headers || {};
@@ -189,6 +214,15 @@ export default function Notifications() {
       <div className="top-bar">
         <Link to="/" className="back-btn">← Accueil</Link>
         <span className="logo-title">CoWatch</span>
+        <img className="top-avatar" src={avatarPreview} alt="avatar" />
+      </div>
+
+      <div className="page-hero">
+        <img className="page-hero-avatar" src={avatarPreview} alt="avatar" />
+        <div>
+          <h2>Notifications</h2>
+          <p>Garde un oeil sur les invitations et mises a jour, {storedName}.</p>
+        </div>
       </div>
 
       {/* Tabs */}

@@ -1,153 +1,171 @@
 :root {
-  --bg-page: #050608;
-  --bg-panel: #111118;
-  --bg-panel-soft: #181821;
-  --bg-input: #1e1e26;
-
-  --amber: #f1c40f;
-  --amber-soft: #ffd86b;
-  --amber-deep: #d4ac0d;
-
-  --text-main: #f5f5f7;
-  --text-muted: #b3b3c2;
-  --text-soft: #808099;
-
-  --border-subtle: #252535;
+  --card-gap: 20px;
 }
 
-/* ========= PAGE GLOBALE ========= */
-
 .start-room-page {
-  background: radial-gradient(circle at top, #1c1c2c 0, var(--bg-page) 55%);
   min-height: 100vh;
   color: var(--text-main);
   padding-bottom: 60px;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  background: radial-gradient(800px 400px at 10% -5%, #fff1c8 0, transparent 55%),
+    var(--bg);
 }
 
-/* ========= TOP BAR / BOUTON RETOUR ========= */
-
 .top-bar {
-  padding: 20px 24px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px 10px;
 }
 
 .back-btn {
-  color: var(--amber);
+  color: var(--accent-strong);
   text-decoration: none;
-  background: #111119;
-  padding: 8px 16px;
+  background: #fff;
+  padding: 8px 14px;
   border-radius: 999px;
   font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.12s ease, color 0.12s ease,
-    box-shadow 0.12s ease, transform 0.12s ease;
-}
-.back-btn:hover {
-  background: var(--amber);
-  color: #000;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.8);
-  transform: translateY(-1px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
 }
 
-/* ========= HEADER PROFIL ========= */
+.profile-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
 
 .profile-header {
-  text-align: center;
-  padding: 10px 24px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  padding: 24px 24px 18px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-strong);
+  overflow: hidden;
+}
+
+.profile-banner {
+  position: absolute;
+  inset: 0;
+  height: 140px;
+  background:
+    radial-gradient(circle at 15% 30%, rgba(240, 180, 41, 0.35), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(45, 212, 191, 0.25), transparent 50%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.profile-identity {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-container {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  padding: 4px;
+  background: conic-gradient(from 120deg, var(--accent), #ffd889, #2dd4bf, var(--accent));
+  box-shadow: var(--shadow-strong);
+}
+
+.identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .username {
-  margin-bottom: 10px;
-  font-size: 20px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
 }
 
-/* avatar plus petit + cercle propre */
+.identity-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 .profile-avatar {
-  width: 96px;
-  height: 96px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--amber);
-  background: #222;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.8);
+  border: 3px solid #fff;
 }
-
-/* ========= TABS ========= */
 
 .profile-tabs {
   display: flex;
   justify-content: center;
-  gap: 35px;
-  padding: 18px 0 10px;
+  gap: 18px;
+  padding: 12px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: fit-content;
+  margin: 16px auto 0;
+  box-shadow: var(--shadow-soft);
 }
 
 .tab {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  padding-bottom: 6px;
-  border-bottom: 2px solid transparent;
+  padding: 6px 10px;
+  border-radius: 999px;
   text-decoration: none;
-  transition: color 0.12s ease, border-color 0.12s ease;
 }
 
 .tab.active {
-  color: var(--amber);
-  border-bottom: 2px solid var(--amber);
+  color: #1b1b1b;
+  background: linear-gradient(120deg, var(--accent), #ffd889);
+  box-shadow: 0 10px 20px rgba(240, 180, 41, 0.25);
 }
 
 .tab:hover {
-  color: var(--amber-soft);
+  color: var(--accent-strong);
 }
-
-/* ========= LAYOUT PRINCIPAL ========= */
 
 .start-room-layout {
   max-width: 1100px;
-  margin: 28px auto 0;
+  margin: 22px auto 0;
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: var(--card-gap);
   padding: 0 24px;
 }
 
-/* colonnes (classe juste pour la sémantique) */
 .center-column,
 .right-column {
   display: flex;
   flex-direction: column;
 }
 
-/* ========= CARDS ========= */
-
 .card {
-  background: linear-gradient(145deg, var(--bg-panel), var(--bg-panel-soft));
-  padding: 24px 22px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.8);
+  background: var(--surface);
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-strong);
 }
 
 .card h3 {
   margin-top: 0;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   font-size: 18px;
 }
-
-/* ========= FORMULAIRE ========= */
 
 .form-card label {
   display: block;
   margin-top: 12px;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -157,92 +175,66 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
+  background: #f8fafc;
+  border: 1px solid var(--border);
   color: var(--text-main);
   font-size: 14px;
 }
-.form-card input::placeholder {
-  color: var(--text-soft);
-}
-.form-card input:focus,
-.form-card select:focus {
-  outline: 2px solid rgba(241, 196, 15, 0.7);
-  border-color: var(--amber);
-}
 
-/* bouton création */
 .btn-create {
-  margin-top: 20px;
+  margin-top: 18px;
   width: 100%;
   padding: 12px;
-  background: var(--amber);
+  background: linear-gradient(120deg, var(--accent), #ffd889);
   border: none;
-  color: #000;
+  color: #1b1b1b;
   font-weight: 700;
   border-radius: 999px;
   cursor: pointer;
   font-size: 14px;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.9);
-  transition: background 0.12s ease, transform 0.12s ease,
-    box-shadow 0.12s ease;
-}
-.btn-create:hover {
-  background: var(--amber-deep);
-  transform: translateY(-1px);
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 12px 20px rgba(240, 180, 41, 0.3);
 }
 
-/* ========= AMIS ========= */
+.action-btn {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--accent), #ffd889);
+  color: #1b1b1b;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(240, 180, 41, 0.25);
+}
 
-.friends-card {
-  /* juste pour pouvoir ajouter des styles si besoin */
+.action-btn.ghost {
+  background: #eef1f8;
+  color: var(--text-main);
+  box-shadow: var(--shadow-soft);
 }
 
 .friends-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .friend-item {
-  background: var(--bg-input);
-  padding: 9px 10px;
+  background: #f8fafc;
+  padding: 8px 10px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  transition: border-color 0.12s ease, background 0.12s ease,
-    transform 0.12s ease;
-}
-
-.friend-item:hover {
-  background: var(--bg-panel-soft);
-  border-color: rgba(241, 196, 15, 0.6);
-  transform: translateY(-1px);
-}
-
-.friend-item input[type="checkbox"] {
-  accent-color: var(--amber);
+  border: 1px solid var(--border);
 }
 
 .friend-item img {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #29293a;
 }
-
-.friend-item span {
-  font-size: 14px;
-  color: var(--text-main);
-}
-
-/* ========= RESPONSIVE ========= */
 
 @media (max-width: 900px) {
   .start-room-layout {

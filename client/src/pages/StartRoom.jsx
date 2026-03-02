@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./StartRoom.css";
 
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+const DEFAULT_AVATAR = "/avatar.svg";
 
 export default function StartRoom() {
   const navigate = useNavigate();
@@ -60,6 +59,8 @@ export default function StartRoom() {
           username: data.username || data.email,
           avatar: data.avatar || DEFAULT_AVATAR,
         });
+        localStorage.setItem("profileName", data.username || data.email || "Utilisateur");
+        localStorage.setItem("profileAvatar", data.avatar || DEFAULT_AVATAR);
       } catch (err) {
         setErrorMsg(err.message);
       }
@@ -155,6 +156,28 @@ export default function StartRoom() {
   if (loading) return <div className="start-room-page">Création en cours...</div>;
   if (errorMsg) return <div className="start-room-page">Erreur : {errorMsg}</div>;
 
+  const normalizeAvatar = (value) => {
+    const trimmed = (value || "").trim();
+    if (!trimmed) return DEFAULT_AVATAR;
+    if (
+      trimmed === "avatar.png" ||
+      trimmed === "avatar.jpg" ||
+      trimmed === "avatar.jpeg" ||
+      trimmed === "avatar"
+    ) {
+      return DEFAULT_AVATAR;
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("data:") || trimmed.startsWith("/")) {
+      return trimmed;
+    }
+    return `/${trimmed}`;
+  };
+
+  const avatarPreview = normalizeAvatar(profile.avatar);
+
   return (
     <div className="start-room-page">
 
@@ -163,16 +186,26 @@ export default function StartRoom() {
         <Link to="/" className="back-btn">← Accueil</Link>
       </div>
 
-      <div className="profile-header">
-        <h2 className="username">@{profile.username}</h2>
-        <img src={profile.avatar} className="profile-avatar" alt="avatar" />
-      </div>
+      <div className="profile-shell">
+        <div className="profile-header">
+          <div className="profile-banner" aria-hidden="true" />
+          <div className="profile-identity">
+            <div className="avatar-container">
+              <img src={avatarPreview} className="profile-avatar" alt="avatar" />
+            </div>
+            <div className="identity-text">
+              <h2 className="username">@{profile.username}</h2>
+              <p className="identity-subtitle">Créer une room privée et inviter tes amis</p>
+            </div>
+          </div>
+        </div>
 
-      <div className="profile-tabs">
-        <Link to="/profile" className="tab">Profil</Link>
-        <button className="tab active">Start Room</button>
-        <Link to="/friends" className="tab">Amis</Link>
-        <Link to="/notifications" className="tab">Notif</Link>
+        <div className="profile-tabs">
+          <Link to="/profile" className="tab">Profil</Link>
+          <button className="tab active">Start Room</button>
+          <Link to="/friends" className="tab">Amis</Link>
+          <Link to="/notifications" className="tab">Notif</Link>
+        </div>
       </div>
 
       <div className="start-room-layout">
@@ -184,10 +217,10 @@ export default function StartRoom() {
                 <p style={{ margin: "4px 0 0" }}>{activeRoom.name} (ID: {activeRoom.id})</p>
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
-                <button className="tab" onClick={() => navigate(`/room/${activeRoom.id}`)}>
+                <button className="action-btn" onClick={() => navigate(`/room/${activeRoom.id}`)}>
                   Rejoindre
                 </button>
-                <button className="tab" onClick={clearActiveRoom}>
+                <button className="action-btn ghost" onClick={clearActiveRoom}>
                   Fermer la room
                 </button>
               </div>
@@ -234,17 +267,17 @@ export default function StartRoom() {
           <h3>Inviter des amis</h3>
           <div className="friends-grid">
             {friends.length === 0 && <p>Aucun ami disponible.</p>}
-            {friends.map((f) => (
-              <label key={f.id} className="friend-item">
-                <input
-                  type="checkbox"
-                  checked={selectedFriends.includes(f.id)}
-                  onChange={() => toggleFriend(f.id)}
-                />
-                <img src={f.avatar || DEFAULT_AVATAR} alt={f.username || f.email} />
-                <span>{f.username || f.email}</span>
-              </label>
-            ))}
+              {friends.map((f) => (
+                <label key={f.id} className="friend-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedFriends.includes(f.id)}
+                    onChange={() => toggleFriend(f.id)}
+                  />
+                  <img src={normalizeAvatar(f.avatar)} alt={f.username || f.email} />
+                  <span>{f.username || f.email}</span>
+                </label>
+              ))}
           </div>
         </section>
 

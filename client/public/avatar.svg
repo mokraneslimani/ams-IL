@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs>
+    <radialGradient id="bg" cx="0.3" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#eef2ff"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0b429"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7d8b5"/>
+      <stop offset="1" stop-color="#e8b98d"/>
+    </linearGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0b429"/>
+      <stop offset="1" stop-color="#ffd889"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="120" fill="url(#bg)"/>
+  <circle cx="120" cy="120" r="112" fill="none" stroke="url(#ring)" stroke-width="8"/>
+  <circle cx="120" cy="92" r="44" fill="url(#skin)"/>
+  <path d="M62 202c10-38 42-62 58-62h0c16 0 48 24 58 62" fill="url(#shirt)"/>
+  <path d="M82 98c8-20 26-32 38-32s30 12 38 32" fill="#1f2937"/>
+  <circle cx="102" cy="92" r="5" fill="#0f172a"/>
+  <circle cx="138" cy="92" r="5" fill="#0f172a"/>
+  <path d="M108 112c8 6 16 6 24 0" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
+</svg>

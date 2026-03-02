@@ -9,6 +9,9 @@ import StartRoom from "./pages/StartRoom";
 import Friends from "./pages/Friends";
 import Notifications from "./pages/Notifications";
 import CGU from "./pages/CGU";
+import Conditions from "./pages/Conditions";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -76,6 +79,9 @@ function App() {
           }
         />
         <Route path="/cgu" element={<CGU />} />
+        <Route path="/conditions" element={<Conditions />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
       </Routes>
     </BrowserRouter>
   );

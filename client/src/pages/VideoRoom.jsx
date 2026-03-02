@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import "./VideoRoom.css";
 
-const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+const DEFAULT_AVATAR = "/avatar.svg";
 
 export default function VideoRoom() {
   const navigate = useNavigate();
@@ -129,6 +129,8 @@ export default function VideoRoom() {
           username: user.username || "user",
           avatar: user.avatar || DEFAULT_AVATAR,
         });
+        localStorage.setItem("profileName", user.username || user.email || "Utilisateur");
+        localStorage.setItem("profileAvatar", user.avatar || DEFAULT_AVATAR);
       } catch (err) {
         setProfileError(err.message);
       } finally {
@@ -862,6 +864,26 @@ export default function VideoRoom() {
 
   // --------- Rendu ---------
 
+  const normalizeAvatar = (value) => {
+    const trimmed = (value || "").trim();
+    if (!trimmed) return DEFAULT_AVATAR;
+    if (
+      trimmed === "avatar.png" ||
+      trimmed === "avatar.jpg" ||
+      trimmed === "avatar.jpeg" ||
+      trimmed === "avatar"
+    ) {
+      return DEFAULT_AVATAR;
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("data:") || trimmed.startsWith("/")) {
+      return trimmed;
+    }
+    return `/${trimmed}`;
+  };
+
   return (
     <div className="room-container">
       {/* HEADER */}
@@ -880,7 +902,7 @@ export default function VideoRoom() {
         {/* Sidebar gauche */}
         <aside className="room-sidebar">
           <div className="profile-mini">
-            <img src={profile.avatar} alt={profile.username} className="profile-mini-avatar" />
+            <img src={normalizeAvatar(profile.avatar)} alt={profile.username} className="profile-mini-avatar" />
             <span>
               {profileLoading ? "Chargement..." : profileError ? "Erreur profil" : `@${profile.username}`}
             </span>
@@ -966,7 +988,7 @@ export default function VideoRoom() {
                     p.initials
                   ) : (
                     <>
-                      <img src={p.avatar} alt={p.username} />
+                      <img src={normalizeAvatar(p.avatar)} alt={p.username} />
                       <span className="avatar-name">{p.username}</span>
                     </>
                   )}
@@ -1063,7 +1085,7 @@ export default function VideoRoom() {
                       checked={selectedFriends.includes(f.id)}
                       onChange={() => toggleFriend(f.id)}
                     />
-                    <img src={f.avatar || DEFAULT_AVATAR} alt={f.username || f.email} />
+                    <img src={normalizeAvatar(f.avatar)} alt={f.username || f.email} />
                     <span>{f.username || f.email}</span>
                   </label>
                 ))}

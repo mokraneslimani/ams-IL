@@ -1,4 +1,4 @@
-.cgu-page {
+.contact-page {
   min-height: 100vh;
   background: radial-gradient(900px 420px at 10% -5%, #fff1c8 0, transparent 55%),
     var(--bg);
@@ -6,7 +6,7 @@
   padding: 18px 24px 32px;
 }
 
-.cgu-top {
+.contact-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -14,7 +14,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.cgu-back {
+.contact-back {
   text-decoration: none;
   color: var(--accent-strong);
   font-size: 14px;
@@ -24,33 +24,66 @@
   border: 1px solid var(--border);
 }
 
-.cgu-title {
+.contact-title {
   font-family: var(--font-serif);
   letter-spacing: 0.1em;
   font-weight: 600;
 }
 
-.cgu-card {
+.contact-hero {
   margin-top: 18px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 20px;
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: var(--shadow-strong);
+}
+
+.contact-hero h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.contact-hero p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.contact-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.contact-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
   box-shadow: var(--shadow-soft);
 }
 
-.cgu-card h2 {
-  margin: 0 0 10px;
+.contact-card h3 {
+  margin: 0 0 8px;
   color: var(--accent-strong);
 }
 
-.cgu-text {
-  white-space: pre-wrap;
-  font-family: inherit;
+.contact-card p {
+  margin: 0;
   color: var(--text-muted);
-  line-height: 1.6;
 }
 
-.cgu-error {
-  color: #c53030;
+.contact-card p + p {
+  margin-top: 6px;
+}
+
+.contact-note {
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
 }

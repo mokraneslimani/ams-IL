@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Profile.css";
 
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+const DEFAULT_AVATAR = "/avatar.svg";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -57,6 +56,9 @@ export default function Profile() {
           bio: current.bio || "Pas encore de bio.",
           avatar: current.avatar || DEFAULT_AVATAR,
         });
+
+        localStorage.setItem("profileName", current.username || current.email || "Utilisateur");
+        localStorage.setItem("profileAvatar", current.avatar || DEFAULT_AVATAR);
 
         setForm({
           username: current.username || "",
@@ -144,6 +146,9 @@ export default function Profile() {
         avatar: updated.avatar || DEFAULT_AVATAR,
       });
 
+      localStorage.setItem("profileName", updated.username || updated.email || "Utilisateur");
+      localStorage.setItem("profileAvatar", updated.avatar || DEFAULT_AVATAR);
+
       setForm({
         username: updated.username || "",
         email: updated.email || "",
@@ -159,39 +164,66 @@ export default function Profile() {
     }
   };
 
+  const normalizeAvatar = (value) => {
+    const trimmed = (value || "").trim();
+    if (!trimmed) return "";
+    if (
+      trimmed === "avatar.png" ||
+      trimmed === "avatar.jpg" ||
+      trimmed === "avatar.jpeg" ||
+      trimmed === "avatar"
+    ) {
+      return DEFAULT_AVATAR;
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("data:") || trimmed.startsWith("/")) {
+      return trimmed;
+    }
+    return `/${trimmed}`;
+  };
+
   const avatarPreview =
-    form.avatar && form.avatar.trim() !== ""
-      ? form.avatar.trim()
-      : profile.avatar || DEFAULT_AVATAR;
+    normalizeAvatar(form.avatar) ||
+    normalizeAvatar(profile.avatar) ||
+    DEFAULT_AVATAR;
 
   return (
     <div className="profile-page">
-
       <div className="top-bar">
         <Link to="/" className="back-btn">← Accueil</Link>
         <button className="tab" onClick={handleLogout}>Déconnexion</button>
       </div>
 
-      <div className="profile-header">
-        <h2 className="username">@{profile.username}</h2>
+      <div className="profile-shell">
+        <div className="profile-header">
+          <div className="profile-banner" aria-hidden="true" />
 
-        <div className="avatar-container">
-          <img
-            src={avatarPreview}
-            alt="avatar"
-            className="profile-avatar"
-          />
+          <div className="profile-identity">
+            <div className="avatar-container">
+              <img
+                src={avatarPreview}
+                alt="avatar"
+                className="profile-avatar"
+              />
+            </div>
+
+            <div className="identity-text">
+              <h2 className="username">@{profile.username}</h2>
+              <p className="identity-subtitle">{profile.fullName}</p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="profile-tabs">
-        <button className="tab active">Profil</button>
-        <Link to="/start-room" className="tab">Start Room</Link>
-        <Link to="/friends" className="tab">Amis</Link>
-        <Link to="/notifications" className="tab">Notif</Link>
-      </div>
+        <div className="profile-tabs">
+          <button className="tab active">Profil</button>
+          <Link to="/start-room" className="tab">Start Room</Link>
+          <Link to="/friends" className="tab">Amis</Link>
+          <Link to="/notifications" className="tab">Notif</Link>
+        </div>
 
-      <div className="profile-content">
+        <div className="profile-content">
 
         <div className="card info-card">
           <h3>Informations principales</h3>
@@ -276,6 +308,7 @@ export default function Profile() {
               ? profile.bio
               : "Ajoute une bio pour personnaliser ton profil."}
           </p>
+        </div>
         </div>
       </div>
     </div>

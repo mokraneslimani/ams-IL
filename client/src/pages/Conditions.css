@@ -1,4 +1,4 @@
-.cgu-page {
+.info-page {
   min-height: 100vh;
   background: radial-gradient(900px 420px at 10% -5%, #fff1c8 0, transparent 55%),
     var(--bg);
@@ -6,7 +6,7 @@
   padding: 18px 24px 32px;
 }
 
-.cgu-top {
+.info-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -14,7 +14,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.cgu-back {
+.info-back {
   text-decoration: none;
   color: var(--accent-strong);
   font-size: 14px;
@@ -24,33 +24,56 @@
   border: 1px solid var(--border);
 }
 
-.cgu-title {
+.info-title {
   font-family: var(--font-serif);
   letter-spacing: 0.1em;
   font-weight: 600;
 }
 
-.cgu-card {
+.info-card {
   margin-top: 18px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 20px;
-  box-shadow: var(--shadow-soft);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-strong);
+  max-width: 980px;
 }
 
-.cgu-card h2 {
+.info-card h2 {
   margin: 0 0 10px;
   color: var(--accent-strong);
 }
 
-.cgu-text {
-  white-space: pre-wrap;
-  font-family: inherit;
+.info-intro {
+  margin: 0 0 18px;
   color: var(--text-muted);
-  line-height: 1.6;
 }
 
-.cgu-error {
-  color: #c53030;
+.info-section {
+  margin-top: 16px;
+}
+
+.info-section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.info-section ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+
+.info-section p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.info-contact {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 14px;
 }
