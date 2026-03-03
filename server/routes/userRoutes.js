@@ -14,6 +14,9 @@ router.post("/login", userController.loginUser);
 // Create user (optional)
 router.post("/register", userController.registerUser);
 
+// Get current user
+router.get("/me", auth, userController.getCurrentUser);
+
 // Update profile for current user
 router.put("/me", auth, userController.updateProfile);
 

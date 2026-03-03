@@ -9,6 +9,23 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const decodeJwtPayload = (token) => {
+    try {
+      const payload = token.split(".")[1];
+      if (!payload) return null;
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const json = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+          .join("")
+      );
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -17,7 +34,7 @@ export default function Login() {
       const res = await fetch("http://localhost:5000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       });
 
       const data = await res.json();
@@ -27,25 +44,26 @@ export default function Login() {
         return;
       }
 
-      // Stocker le token (session + localStorage)
       if (data.token) {
         localStorage.setItem("token", data.token);
         sessionStorage.setItem("token", data.token);
       }
 
-      // Récupérer l'id utilisateur
       let userId = null;
       if (data.user && data.user.id) {
         userId = data.user.id;
       } else if (data.id) {
         userId = data.id;
+      } else if (data.token) {
+        const payload = decodeJwtPayload(data.token);
+        userId = payload?.id || payload?.userId || null;
       }
 
-      if (userId !== null) {
+      if (userId !== null && userId !== undefined) {
         localStorage.setItem("userId", String(userId));
         sessionStorage.setItem("userId", String(userId));
       } else {
-        setErrorMsg("Aucun identifiant utilisateur retourné.");
+        setErrorMsg("Aucun identifiant utilisateur retourne.");
         return;
       }
 
@@ -81,7 +99,7 @@ export default function Login() {
         <button type="submit" className="auth-btn">Se connecter</button>
 
         <p className="auth-link">
-          Pas de compte ? <Link to="/signin">Créer un compte</Link>
+          Pas de compte ? <Link to="/signin">Creer un compte</Link>
         </p>
       </form>
     </div>

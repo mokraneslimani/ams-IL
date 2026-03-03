@@ -159,6 +159,19 @@ socket.on("change_video", async (data) => {
             socket.to(data.roomId).emit("playlist_update", data);
         });
 
+        // ------------------------------------------
+        // Annotations collaboratives
+        // ------------------------------------------
+        socket.on("annotation_created", (data) => {
+            if (!data || !data.roomId) return;
+            socket.to(data.roomId).emit("annotation_created", data);
+        });
+
+        socket.on("annotation_deleted", (data) => {
+            if (!data || !data.roomId) return;
+            socket.to(data.roomId).emit("annotation_deleted", data);
+        });
+
 socket.on("disconnect", () => {
             console.log("🔴 Déconnecté :", socket.id);
 

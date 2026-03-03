@@ -34,6 +34,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const playlistRoutes = require("./routes/playlistRoutes");
 const cguRoutes = require("./routes/cguRoutes");
+const annotationRoutes = require("./routes/annotationRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
@@ -43,6 +44,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/playlists", playlistRoutes);
 app.use("/api/cgu", cguRoutes);
+app.use("/api/annotations", annotationRoutes);
 
 // Test route API
 app.get("/api/test", async (req, res) => {

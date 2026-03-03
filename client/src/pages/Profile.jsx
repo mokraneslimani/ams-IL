@@ -11,42 +11,49 @@ export default function Profile() {
     username: "",
     email: "",
     bio: "",
-    avatar: "",
+    avatar: ""
   });
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [stats, setStats] = useState({
     posts: 0,
     videosWatched: 0,
-    friends: 0,
+    friends: 0
   });
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
-      if (!token || !userId) {
-        setErrorMsg("Non connecté");
+      if (!token) {
+        setErrorMsg("Non connecte");
         setLoading(false);
         navigate("/login");
         return;
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        const res = await fetch("http://localhost:5000/api/users/me", {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         });
 
         if (!res.ok) {
-          throw new Error("Erreur lors du chargement de l'utilisateur");
+          const body = await res.json().catch(() => ({}));
+          const details = body?.message || body?.error || "";
+          throw new Error(
+            `Erreur lors du chargement de l'utilisateur (${res.status})${details ? `: ${details}` : ""}`
+          );
         }
 
         const current = await res.json();
+        if (current?.id) {
+          localStorage.setItem("userId", String(current.id));
+          sessionStorage.setItem("userId", String(current.id));
+        }
 
         setProfile({
           username: current.username,
@@ -54,7 +61,7 @@ export default function Profile() {
           email: current.email,
           location: "France",
           bio: current.bio || "Pas encore de bio.",
-          avatar: current.avatar || DEFAULT_AVATAR,
+          avatar: current.avatar || DEFAULT_AVATAR
         });
 
         localStorage.setItem("profileName", current.username || current.email || "Utilisateur");
@@ -64,13 +71,13 @@ export default function Profile() {
           username: current.username || "",
           email: current.email || "",
           bio: current.bio || "",
-          avatar: current.avatar || "",
+          avatar: current.avatar || ""
         });
 
         setStats({
           posts: 5,
           videosWatched: 42,
-          friends: 3,
+          friends: 3
         });
       } catch (err) {
         setErrorMsg(err.message);
@@ -120,14 +127,14 @@ export default function Profile() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           username: form.username,
           email: form.email,
           bio: form.bio,
-          avatar: form.avatar,
-        }),
+          avatar: form.avatar
+        })
       });
 
       if (!res.ok) {
@@ -143,7 +150,7 @@ export default function Profile() {
         email: updated.email,
         location: profile?.location || "France",
         bio: updated.bio || "",
-        avatar: updated.avatar || DEFAULT_AVATAR,
+        avatar: updated.avatar || DEFAULT_AVATAR
       });
 
       localStorage.setItem("profileName", updated.username || updated.email || "Utilisateur");
@@ -153,7 +160,7 @@ export default function Profile() {
         username: updated.username || "",
         email: updated.email || "",
         bio: updated.bio || "",
-        avatar: updated.avatar || "",
+        avatar: updated.avatar || ""
       });
 
       setSuccessMsg("Profil mis a jour.");
@@ -193,7 +200,7 @@ export default function Profile() {
     <div className="profile-page">
       <div className="top-bar">
         <Link to="/" className="back-btn">← Accueil</Link>
-        <button className="tab" onClick={handleLogout}>Déconnexion</button>
+        <button className="tab" onClick={handleLogout}>Deconnexion</button>
       </div>
 
       <div className="profile-shell">
@@ -224,91 +231,90 @@ export default function Profile() {
         </div>
 
         <div className="profile-content">
+          <div className="card info-card">
+            <h3>Informations principales</h3>
+            <p><strong>Nom complet :</strong> {profile.fullName}</p>
+            <p><strong>Email :</strong> {profile.email}</p>
+            <p><strong>Localisation :</strong> {profile.location}</p>
+            <p><strong>Bio :</strong> {profile.bio}</p>
 
-        <div className="card info-card">
-          <h3>Informations principales</h3>
-          <p><strong>Nom complet :</strong> {profile.fullName}</p>
-          <p><strong>Email :</strong> {profile.email}</p>
-          <p><strong>Localisation :</strong> {profile.location}</p>
-          <p><strong>Bio :</strong> {profile.bio}</p>
+            <form className="profile-edit" onSubmit={handleSave}>
+              <label>
+                Username
+                <input
+                  type="text"
+                  name="username"
+                  value={form.username}
+                  onChange={handleChange}
+                />
+              </label>
 
-          <form className="profile-edit" onSubmit={handleSave}>
-            <label>
-              Username
-              <input
-                type="text"
-                name="username"
-                value={form.username}
-                onChange={handleChange}
-              />
-            </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                />
+              </label>
 
-            <label>
-              Email
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-              />
-            </label>
+              <label>
+                Avatar URL
+                <input
+                  type="text"
+                  name="avatar"
+                  value={form.avatar}
+                  onChange={handleChange}
+                />
+              </label>
 
-            <label>
-              Avatar URL
-              <input
-                type="text"
-                name="avatar"
-                value={form.avatar}
-                onChange={handleChange}
-              />
-            </label>
+              <label>
+                Bio
+                <textarea
+                  name="bio"
+                  rows="3"
+                  value={form.bio}
+                  onChange={handleChange}
+                />
+              </label>
 
-            <label>
-              Bio
-              <textarea
-                name="bio"
-                rows="3"
-                value={form.bio}
-                onChange={handleChange}
-              />
-            </label>
+              <button type="submit" className="save-btn" disabled={saving}>
+                {saving ? "Enregistrement..." : "Enregistrer"}
+              </button>
+              {successMsg && <p className="success-msg">{successMsg}</p>}
+            </form>
+          </div>
 
-            <button type="submit" className="save-btn" disabled={saving}>
-              {saving ? "Enregistrement..." : "Enregistrer"}
-            </button>
-            {successMsg && <p className="success-msg">{successMsg}</p>}
-          </form>
-        </div>
+          <div className="card stats-card">
+            <h3>Statistiques</h3>
 
-        <div className="card stats-card">
-          <h3>Statistiques</h3>
+            <div className="stats-grid">
+              <div className="stats-box">
+                <span className="stats-number">{stats.posts}</span>
+                <span className="stats-label">Posts</span>
+              </div>
 
-          <div className="stats-grid">
-            <div className="stats-box">
-              <span className="stats-number">{stats.posts}</span>
-              <span className="stats-label">Posts</span>
-            </div>
+              <div className="stats-box">
+                <span className="stats-number">{stats.videosWatched}</span>
+                <span className="stats-label">Videos vues</span>
+              </div>
 
-            <div className="stats-box">
-              <span className="stats-number">{stats.videosWatched}</span>
-              <span className="stats-label">Vidéos vues</span>
-            </div>
-
-            <div className="stats-box">
-              <span className="stats-number">{stats.friends}</span>
-              <span className="stats-label">Amis</span>
+              <div className="stats-box">
+                <span className="stats-number">{stats.friends}</span>
+                <span className="stats-label">Amis</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="card about-card">
-          <h3>A propos</h3>
-          <p>
-            {profile.bio && profile.bio.trim() !== ""
-              ? profile.bio
-              : "Ajoute une bio pour personnaliser ton profil."}
-          </p>
-        </div>
+          <div className="card about-card">
+            <h3>A propos</h3>
+            <p>
+              {profile.bio && profile.bio.trim() !== ""
+                ? profile.bio
+                : "Ajoute une bio pour personnaliser ton profil."}
+            </p>
+          </div>
         </div>
       </div>
     </div>

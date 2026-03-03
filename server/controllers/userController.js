@@ -31,6 +31,23 @@ exports.getUser = async (req, res) => {
 };
 
 // ===============================
+//   GET CURRENT USER (/me)
+// ===============================
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await userService.getUserById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ===============================
 //   UPDATE PROFILE (CURRENT USER)
 // ===============================
 exports.updateProfile = async (req, res) => {

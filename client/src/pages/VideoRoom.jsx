@@ -74,6 +74,14 @@ export default function VideoRoom() {
   const [chatInput, setChatInput] = useState("");
   const [chatError, setChatError] = useState("");
 
+  // Annotations
+  const [annotations, setAnnotations] = useState([]);
+  const [annotationInput, setAnnotationInput] = useState("");
+  const [annotationError, setAnnotationError] = useState("");
+  const [annotationSaving, setAnnotationSaving] = useState(false);
+  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+
   // Playlist
   const [playlistItems, setPlaylistItems] = useState([]);
   const [playlistUrl, setPlaylistUrl] = useState("");
@@ -361,6 +369,9 @@ export default function VideoRoom() {
         return;
       }
       const currentTime = player.getCurrentTime();
+      const duration = typeof player.getDuration === "function" ? player.getDuration() : 0;
+      setPlayerCurrentTime(currentTime || 0);
+      setPlayerDuration(duration || 0);
       if (isRemoteActionRef.current) {
         lastTimeRef.current = currentTime;
         return;
@@ -420,6 +431,36 @@ export default function VideoRoom() {
     loadMessages();
   }, [effectiveRoomId]);
 
+  // Annotations chargees par room + video
+  useEffect(() => {
+    if (!effectiveRoomId || !currentVideo.url) {
+      setAnnotations([]);
+      return;
+    }
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) return;
+
+    const loadAnnotations = async () => {
+      setAnnotationError("");
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/annotations/${effectiveRoomId}?videoUrl=${encodeURIComponent(currentVideo.url)}&limit=500`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || "Impossible de charger les annotations");
+        }
+        const data = await res.json();
+        setAnnotations(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setAnnotationError(err.message);
+      }
+    };
+
+    loadAnnotations();
+  }, [effectiveRoomId, currentVideo.url]);
+
   useEffect(() => {
     if (!effectiveRoomId || !socketRef.current) return;
     const socket = socketRef.current;
@@ -444,6 +485,37 @@ export default function VideoRoom() {
       socket.off("chat_message", handleChatMessage);
     };
   }, [effectiveRoomId]);
+
+  // Annotations live via socket
+  useEffect(() => {
+    if (!effectiveRoomId || !socketRef.current || !currentVideo.url) return;
+    const socket = socketRef.current;
+
+    const handleAnnotationCreated = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      if (String(data.video_url || data.videoUrl || "") !== String(currentVideo.url)) return;
+      setAnnotations((prev) => {
+        const without = prev.filter((item) => Number(item.id) !== Number(data.id));
+        return [...without, data].sort(
+          (a, b) =>
+            Number(a.timecode_sec || a.timecodeSec || 0) - Number(b.timecode_sec || b.timecodeSec || 0)
+        );
+      });
+    };
+
+    const handleAnnotationDeleted = (data) => {
+      if (!data || String(data.roomId) !== String(effectiveRoomId)) return;
+      setAnnotations((prev) => prev.filter((item) => Number(item.id) !== Number(data.annotationId)));
+    };
+
+    socket.on("annotation_created", handleAnnotationCreated);
+    socket.on("annotation_deleted", handleAnnotationDeleted);
+
+    return () => {
+      socket.off("annotation_created", handleAnnotationCreated);
+      socket.off("annotation_deleted", handleAnnotationDeleted);
+    };
+  }, [effectiveRoomId, currentVideo.url]);
 
   const playlistStorageKey = effectiveRoomId ? `playlist:${effectiveRoomId}` : "";
 
@@ -518,6 +590,13 @@ export default function VideoRoom() {
   const getYouTubeThumb = (url) => {
     const id = getYouTubeId(url);
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+  };
+
+  const formatTimecode = (seconds) => {
+    const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   const ensureYouTubeApi = useCallback(() => {
@@ -748,6 +827,106 @@ export default function VideoRoom() {
 
   // --------- Actions ----------
 
+  const seekToAnnotationTime = (timecodeSec) => {
+    const player = playerRef.current;
+    if (!player || typeof player.seekTo !== "function") return;
+    const safeTime = Math.max(0, Number(timecodeSec) || 0);
+    player.seekTo(safeTime, true);
+    if (socketRef.current && effectiveRoomId) {
+      socketRef.current.emit("video_seek", {
+        roomId: String(effectiveRoomId),
+        currentTime: safeTime
+      });
+    }
+  };
+
+  const addAnnotationAtCurrentTime = async () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) {
+      setAnnotationError("Connexion requise");
+      return;
+    }
+    if (!effectiveRoomId || !currentVideo.url) {
+      setAnnotationError("Aucune video active");
+      return;
+    }
+
+    const content = annotationInput.trim();
+    if (!content) {
+      setAnnotationError("Ecris une annotation");
+      return;
+    }
+
+    const now =
+      playerRef.current && typeof playerRef.current.getCurrentTime === "function"
+        ? playerRef.current.getCurrentTime()
+        : playerCurrentTime;
+
+    setAnnotationSaving(true);
+    setAnnotationError("");
+    try {
+      const res = await fetch(`http://localhost:5000/api/annotations/${effectiveRoomId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          videoUrl: currentVideo.url,
+          timecodeSec: now,
+          content
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Impossible d'ajouter l'annotation");
+      }
+
+      setAnnotations((prev) =>
+        [...prev.filter((item) => Number(item.id) !== Number(data.id)), data].sort(
+          (a, b) =>
+            Number(a.timecode_sec || a.timecodeSec || 0) - Number(b.timecode_sec || b.timecodeSec || 0)
+        )
+      );
+      setAnnotationInput("");
+
+      if (socketRef.current) {
+        socketRef.current.emit("annotation_created", {
+          ...data,
+          roomId: String(effectiveRoomId)
+        });
+      }
+    } catch (err) {
+      setAnnotationError(err.message);
+    } finally {
+      setAnnotationSaving(false);
+    }
+  };
+
+  const deleteAnnotation = async (annotationId) => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token || !effectiveRoomId) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/annotations/${effectiveRoomId}/${annotationId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Suppression impossible");
+      }
+      setAnnotations((prev) => prev.filter((item) => Number(item.id) !== Number(annotationId)));
+      if (socketRef.current) {
+        socketRef.current.emit("annotation_deleted", {
+          roomId: String(effectiveRoomId),
+          annotationId: Number(annotationId)
+        });
+      }
+    } catch (err) {
+      setAnnotationError(err.message);
+    }
+  };
+
   const syncChangeVideo = async (url, category) => {
     const meta = await fetchYouTubeMeta(url);
     const title = meta.title || "Nouvelle video";
@@ -884,6 +1063,10 @@ export default function VideoRoom() {
     return `/${trimmed}`;
   };
 
+  const currentUserId = Number(
+    localStorage.getItem("userId") || sessionStorage.getItem("userId") || 0
+  );
+
   return (
     <div className="room-container">
       {/* HEADER */}
@@ -948,6 +1131,29 @@ export default function VideoRoom() {
               ) : (
                 <p className="placeholder">Aucune video chargee.</p>
               )}
+            </div>
+            <div className="annotation-timeline">
+              <div className="annotation-timeline-head">
+                <span>Timeline annotations</span>
+                <span>
+                  {formatTimecode(playerCurrentTime)} / {formatTimecode(playerDuration)}
+                </span>
+              </div>
+              <div className="annotation-timeline-bar">
+                {annotations.map((ann) => {
+                  const markerTime = Number(ann.timecode_sec || ann.timecodeSec || 0);
+                  const left = playerDuration > 0 ? Math.min((markerTime / playerDuration) * 100, 100) : 0;
+                  return (
+                    <button
+                      key={`marker-${ann.id}`}
+                      className="annotation-marker"
+                      style={{ left: `${left}%` }}
+                      title={`${formatTimecode(markerTime)} - ${ann.content}`}
+                      onClick={() => seekToAnnotationTime(markerTime)}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -1036,6 +1242,54 @@ export default function VideoRoom() {
                 <li className="playlist-empty">Ajoute des videos a ta playlist.</li>
               )}
             </ul>
+          </section>
+
+          <section className="annotation-section">
+            <h3>Annotations</h3>
+            {annotationError && <p className="auth-error">{annotationError}</p>}
+            <div className="annotation-add-row">
+              <input
+                type="text"
+                placeholder={`Ajouter une annotation a ${formatTimecode(playerCurrentTime)}...`}
+                value={annotationInput}
+                onChange={(e) => setAnnotationInput(e.target.value)}
+              />
+              <button onClick={addAnnotationAtCurrentTime} disabled={annotationSaving}>
+                {annotationSaving ? "..." : "Annoter"}
+              </button>
+            </div>
+            <div className="annotation-list">
+              {annotations.length === 0 && <p className="playlist-empty">Aucune annotation pour cette video.</p>}
+              {annotations.map((ann) => {
+                const time = Number(ann.timecode_sec || ann.timecodeSec || 0);
+                const isMine = Number(ann.user_id) === currentUserId;
+                return (
+                  <div key={ann.id} className="annotation-item">
+                    <button
+                      className="annotation-time"
+                      onClick={() => seekToAnnotationTime(time)}
+                    >
+                      {formatTimecode(time)}
+                    </button>
+                    <div className="annotation-body">
+                      <p className="annotation-content">{ann.content}</p>
+                      <span className="annotation-meta">
+                        {ann.username || "user"} {ann.created_at ? `• ${new Date(ann.created_at).toLocaleTimeString("fr-FR")}` : ""}
+                      </span>
+                    </div>
+                    {isMine && (
+                      <button
+                        className="annotation-delete"
+                        onClick={() => deleteAnnotation(ann.id)}
+                        title="Supprimer"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </section>
 
           <section className="chat-section">
