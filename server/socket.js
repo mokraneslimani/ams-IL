@@ -5,6 +5,9 @@ const Annotation = require("./models/annotationModel");
 const MAX_CHAT_MESSAGE_LENGTH = 1000;
 const MAX_PLAYLIST_ITEMS = 200;
 const MAX_ANNOTATION_SYNC_LIMIT = 1000;
+const CHAT_MIN_INTERVAL_MS = 250;
+const ANNOTATION_MIN_INTERVAL_MS = 400;
+const ANNOTATION_DUPLICATE_TTL_MS = 10000;
 
 const normalizeRoomId = (value) => {
   const roomId = typeof value === "object" && value !== null ? value.roomId : value;
@@ -38,6 +41,35 @@ const toSafeLimit = (value, fallback = 500) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.min(Math.max(Math.floor(parsed), 1), MAX_ANNOTATION_SYNC_LIMIT);
+};
+
+const checkRateLimit = (bucket, key, minIntervalMs) => {
+  const now = Date.now();
+  const last = bucket.get(key) || 0;
+  const elapsed = now - last;
+  if (elapsed < minIntervalMs) {
+    return {
+      limited: true,
+      retryAfterMs: minIntervalMs - elapsed
+    };
+  }
+  bucket.set(key, now);
+  return { limited: false, retryAfterMs: 0 };
+};
+
+const checkAndRememberRecentKey = (bucket, key, ttlMs) => {
+  const now = Date.now();
+  const existing = bucket.get(key);
+  if (existing && now - existing < ttlMs) {
+    return true;
+  }
+  bucket.set(key, now);
+  for (const [storedKey, timestamp] of bucket.entries()) {
+    if (now - timestamp > ttlMs) {
+      bucket.delete(storedKey);
+    }
+  }
+  return false;
 };
 
 module.exports = function socketHandler(io) {
@@ -84,6 +116,11 @@ module.exports = function socketHandler(io) {
 
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
+    const rateState = {
+      chat: new Map(),
+      annotation: new Map()
+    };
+    const recentAnnotationBroadcasts = new Map();
 
     socket.on("join_room", (rawRoomId) => {
       const roomId = normalizeRoomId(rawRoomId);
@@ -281,6 +318,16 @@ module.exports = function socketHandler(io) {
       const roomId = normalizeRoomId(data.roomId);
       if (!canUseRoom(socket, roomId)) return;
 
+      const chatRate = checkRateLimit(rateState.chat, roomId, CHAT_MIN_INTERVAL_MS);
+      if (chatRate.limited) {
+        socket.emit("rate_limited", {
+          event: "chat_message",
+          roomId,
+          retryAfterMs: chatRate.retryAfterMs
+        });
+        return;
+      }
+
       const content = toSafeText(data.message || data.content, MAX_CHAT_MESSAGE_LENGTH);
       if (!content) return;
 
@@ -322,6 +369,26 @@ module.exports = function socketHandler(io) {
 
       const annotationId = toPositiveIntegerOrNull(data.id);
       if (!annotationId) return;
+
+      const annotationRate = checkRateLimit(rateState.annotation, roomId, ANNOTATION_MIN_INTERVAL_MS);
+      if (annotationRate.limited) {
+        socket.emit("rate_limited", {
+          event: "annotation_created",
+          roomId,
+          retryAfterMs: annotationRate.retryAfterMs
+        });
+        return;
+      }
+
+      const duplicateKey = `${roomId}:${annotationId}`;
+      const duplicate = checkAndRememberRecentKey(
+        recentAnnotationBroadcasts,
+        duplicateKey,
+        ANNOTATION_DUPLICATE_TTL_MS
+      );
+      if (duplicate) {
+        return;
+      }
 
       socket.to(roomId).emit("annotation_created", {
         ...data,
