@@ -1,194 +1,302 @@
-﻿// ==============================================
-// 🔌 SOCKET.IO — Gestion des Rooms en temps réel
-// ==============================================
-//
-// Ce module gère :
-// - les connexions WebSocket
-// - les rooms (join/leave)
-// - la liste des participants
-// - la synchronisation vidéo (play / pause / seek)
-// - un "host" par room (contrôle la vidéo)
-// - le chat en temps réel
-// - l’historique des vidéos regardées
-//
-// ==============================================
 const historyService = require("./services/historyService");
 const messageService = require("./services/messageService");
 
-module.exports = function (io) {
+const MAX_CHAT_MESSAGE_LENGTH = 1000;
+const MAX_PLAYLIST_ITEMS = 200;
 
-    // Mémoire temporaire côté serveur
-    const roomsData = {};
-
-    // ==============================================
-    // 🔌 Connexion d’un nouveau client
-    // ==============================================
-    io.on("connection", (socket) => {
-        console.log("🟢 Client connecté :", socket.id);
-
-        // ------------------------------------------
-        // 🟦 Rejoindre une room
-        // ------------------------------------------
-        socket.on("join_room", (roomId) => {
-            socket.join(roomId);
-            console.log(`📌 ${socket.id} a rejoint la room ${roomId}`);
-
-            if (!roomsData[roomId]) {
-                roomsData[roomId] = {
-                    host: socket.id,
-                    users: []
-                };
-                console.log(`👑 ${socket.id} est le host de la room ${roomId}`);
-            }
-
-            roomsData[roomId].users.push(socket.id);
-
-            io.to(roomId).emit("participants_update", roomsData[roomId].users);
-            io.to(roomId).emit("host_update", roomsData[roomId].host);
-
-        // ------------------------------------------
-        // Fermer une room (tout le monde quitte)
-        // ------------------------------------------
-        socket.on("close_room", (roomId) => {
-            if (!roomId || !roomsData[roomId]) return;
-            console.log(`Room fermee : ${roomId}`);
-            io.to(roomId).emit("room_closed", {
-                roomId,
-                message: "La room a ete fermee par l'hote."
-            });
-            io.in(roomId).socketsLeave(roomId);
-            delete roomsData[roomId];
-        });
-        });
-
-        // ------------------------------------------
-        // 🎬 Synchronisation vidéo : PLAY
-        // ------------------------------------------
-        socket.on("video_play", (data) => {
-            console.log(`▶️ Lecture room ${data.roomId}, time = ${data.currentTime}`);
-            socket.to(data.roomId).emit("video_play", data);
-        });
-
-        // ------------------------------------------
-        // ⏸ Synchronisation vidéo : PAUSE
-        // ------------------------------------------
-        socket.on("video_pause", (data) => {
-            console.log(`⏸ Pause room ${data.roomId}`);
-            socket.to(data.roomId).emit("video_pause", data);
-        });
-
-        // ------------------------------------------
-        // ⏩ Synchronisation vidéo : SEEK
-        // ------------------------------------------
-        socket.on("video_seek", (data) => {
-            console.log(`⏩ Seek room ${data.roomId}, time = ${data.currentTime}`);
-            socket.to(data.roomId).emit("video_seek", data);
-        });
-
-        // ------------------------------------------
-        // 🔵 SYNCHRO : CHANGER DE VIDÉO (HISTORIQUE INCLUS)
-        // ------------------------------------------
-        // ------------------------------------------
-// 🔵 SYNCHRO : CHANGER DE VIDÉO + DEBUG
-// ------------------------------------------
-socket.on("change_video", async (data) => {
-    console.log("DEBUG SOCKET: change_video reçu :", data);
-
-    // Diffuser dans la room
-    socket.to(data.roomId).emit("change_video", data);
-
-    // 🔥 Debug avant enregistrement
-    console.log("DEBUG SOCKET: Appel historyService.addHistoryEntry...");
-
-    try {
-        const fallbackThumb = data.videoId ? `https://img.youtube.com/vi/${data.videoId}/hqdefault.jpg` : null;
-        const result = await historyService.addHistoryEntry({
-            roomId: data.roomId,
-            videoUrl: data.videoUrl,
-            title: data.title || null,
-            thumbnail: data.thumbnail || fallbackThumb
-        }, data.videoId);
-
-        console.log("DEBUG SOCKET: Résultat historyService :", result);
-
-        console.log("📚 Historique mis à jour !");
-    } catch (err) {
-        console.log("❌ DEBUG ERREUR SOCKET :", err);
-    }
-});
-
-        // ------------------------------------------
-        // 🔁 Synchronisation (nouvel arrivant)
-        // ------------------------------------------
-        socket.on("video_sync_request", (roomId) => {
-            socket.to(roomId).emit("video_sync_request");
-        });
-
-        socket.on("video_sync_response", (data) => {
-            socket.to(data.roomId).emit("video_sync_response", data);
-        });
-
-        // ------------------------------------------
-        // 💬 Chat en temps réel
-        // ------------------------------------------
-        socket.on("chat_message", async (data) => {
-            console.log(`?Y'? Message room ${data.roomId} : ${data.username} ??' ${data.message}`);
-            io.to(data.roomId).emit("chat_message", data);
-
-            try {
-                const roomId = data.roomId;
-                const userId = data.userId || data.user_id;
-                const content = data.message || data.content;
-                if (roomId && userId && content) {
-                    await messageService.create(roomId, userId, content);
-                }
-            } catch (err) {
-                console.error("Erreur sauvegarde message:", err.message);
-            }
-        });
-
-        // ------------------------------------------
-        // ❌ Déconnexion
-        // ------------------------------------------
-        
-        // ------------------------------------------
-        // Playlist collaborative
-        // ------------------------------------------
-        socket.on("playlist_update", (data) => {
-            if (!data || !data.roomId) return;
-            socket.to(data.roomId).emit("playlist_update", data);
-        });
-
-        // ------------------------------------------
-        // Annotations collaboratives
-        // ------------------------------------------
-        socket.on("annotation_created", (data) => {
-            if (!data || !data.roomId) return;
-            socket.to(data.roomId).emit("annotation_created", data);
-        });
-
-        socket.on("annotation_deleted", (data) => {
-            if (!data || !data.roomId) return;
-            socket.to(data.roomId).emit("annotation_deleted", data);
-        });
-
-socket.on("disconnect", () => {
-            console.log("🔴 Déconnecté :", socket.id);
-
-            for (const roomId in roomsData) {
-                const room = roomsData[roomId];
-                if (!room) continue;
-
-                room.users = room.users.filter(u => u !== socket.id);
-
-                if (room.host === socket.id) {
-                    room.host = room.users[0] || null;
-                    io.to(roomId).emit("host_update", room.host);
-                }
-
-                io.to(roomId).emit("participants_update", room.users);
-            }
-        });
-    });
+const normalizeRoomId = (value) => {
+  const roomId = typeof value === "object" && value !== null ? value.roomId : value;
+  const normalized = String(roomId ?? "").trim();
+  return normalized || null;
 };
 
+const toPositiveIntegerOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const toSafeNumberOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toSafeText = (value, maxLen = 255) => {
+  const safe = String(value ?? "").trim();
+  if (!safe) return "";
+  return safe.length > maxLen ? safe.slice(0, maxLen) : safe;
+};
+
+module.exports = function socketHandler(io) {
+  const roomsData = Object.create(null);
+
+  const getOrCreateRoomState = (roomId) => {
+    if (!roomsData[roomId]) {
+      roomsData[roomId] = {
+        host: null,
+        users: new Set()
+      };
+    }
+    return roomsData[roomId];
+  };
+
+  const emitRoomState = (roomId) => {
+    const room = roomsData[roomId];
+    if (!room) return;
+    io.to(roomId).emit("participants_update", Array.from(room.users));
+    io.to(roomId).emit("host_update", room.host);
+  };
+
+  const removeSocketFromRoom = (roomId, socketId) => {
+    const room = roomsData[roomId];
+    if (!room) return;
+
+    room.users.delete(socketId);
+    if (room.host === socketId) {
+      room.host = room.users.values().next().value || null;
+    }
+
+    if (room.users.size === 0) {
+      delete roomsData[roomId];
+      return;
+    }
+
+    emitRoomState(roomId);
+  };
+
+  const canUseRoom = (socket, roomId) => {
+    if (!roomId) return false;
+    return socket.rooms.has(roomId);
+  };
+
+  io.on("connection", (socket) => {
+    console.log("Socket connected:", socket.id);
+
+    socket.on("join_room", (rawRoomId) => {
+      const roomId = normalizeRoomId(rawRoomId);
+      if (!roomId) return;
+
+      socket.join(roomId);
+      const room = getOrCreateRoomState(roomId);
+      room.users.add(socket.id);
+
+      if (!room.host || !room.users.has(room.host)) {
+        room.host = socket.id;
+      }
+
+      emitRoomState(roomId);
+    });
+
+    socket.on("leave_room", (rawRoomId) => {
+      const roomId = normalizeRoomId(rawRoomId);
+      if (!roomId) return;
+
+      socket.leave(roomId);
+      removeSocketFromRoom(roomId, socket.id);
+    });
+
+    socket.on("close_room", (rawRoomId) => {
+      const roomId = normalizeRoomId(rawRoomId);
+      if (!roomId || !roomsData[roomId]) return;
+
+      const room = roomsData[roomId];
+      if (room.host !== socket.id) {
+        socket.emit("room_close_denied", {
+          roomId,
+          message: "Only the room host can close the room."
+        });
+        return;
+      }
+
+      io.to(roomId).emit("room_closed", {
+        roomId,
+        message: "La room a ete fermee par l'hote."
+      });
+      io.in(roomId).socketsLeave(roomId);
+      delete roomsData[roomId];
+    });
+
+    socket.on("video_play", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const currentTime = toSafeNumberOrNull(data.currentTime);
+      const payload = {
+        ...data,
+        roomId
+      };
+      if (currentTime !== null) {
+        payload.currentTime = Math.max(0, currentTime);
+      }
+
+      socket.to(roomId).emit("video_play", payload);
+    });
+
+    socket.on("video_pause", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const currentTime = toSafeNumberOrNull(data.currentTime);
+      const payload = {
+        ...data,
+        roomId
+      };
+      if (currentTime !== null) {
+        payload.currentTime = Math.max(0, currentTime);
+      }
+
+      socket.to(roomId).emit("video_pause", payload);
+    });
+
+    socket.on("video_seek", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const currentTime = toSafeNumberOrNull(data.currentTime);
+      if (currentTime === null) return;
+
+      socket.to(roomId).emit("video_seek", {
+        ...data,
+        roomId,
+        currentTime: Math.max(0, currentTime)
+      });
+    });
+
+    socket.on("change_video", async (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const videoUrl = toSafeText(data.videoUrl, 2048);
+      if (!videoUrl) return;
+
+      const payload = {
+        ...data,
+        roomId,
+        videoUrl,
+        title: toSafeText(data.title, 255),
+        category: toSafeText(data.category, 80),
+        videoId: toSafeText(data.videoId, 80),
+        thumbnail: toSafeText(data.thumbnail, 2048)
+      };
+
+      socket.to(roomId).emit("change_video", payload);
+
+      try {
+        const fallbackThumb = payload.videoId
+          ? `https://img.youtube.com/vi/${payload.videoId}/hqdefault.jpg`
+          : null;
+
+        await historyService.addHistoryEntry(
+          {
+            roomId,
+            videoUrl,
+            title: payload.title || null,
+            thumbnail: payload.thumbnail || fallbackThumb
+          },
+          payload.videoId || null
+        );
+      } catch (err) {
+        console.error("change_video history persistence error:", err.message);
+      }
+    });
+
+    socket.on("video_sync_request", (rawRoomId) => {
+      const roomId = normalizeRoomId(rawRoomId);
+      if (!canUseRoom(socket, roomId)) return;
+      socket.to(roomId).emit("video_sync_request");
+    });
+
+    socket.on("video_sync_response", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const currentTime = toSafeNumberOrNull(data.currentTime);
+      socket.to(roomId).emit("video_sync_response", {
+        ...data,
+        roomId,
+        currentTime: currentTime === null ? 0 : Math.max(0, currentTime),
+        isPlaying: Boolean(data.isPlaying),
+        videoUrl: toSafeText(data.videoUrl, 2048)
+      });
+    });
+
+    socket.on("chat_message", async (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const content = toSafeText(data.message || data.content, MAX_CHAT_MESSAGE_LENGTH);
+      if (!content) return;
+
+      const payload = {
+        ...data,
+        roomId,
+        username: toSafeText(data.username, 80),
+        message: content,
+        content
+      };
+      io.to(roomId).emit("chat_message", payload);
+
+      try {
+        const roomIdNum = toPositiveIntegerOrNull(roomId);
+        const userId = toPositiveIntegerOrNull(data.userId || data.user_id);
+        if (roomIdNum && userId) {
+          await messageService.create(roomIdNum, userId, content);
+        }
+      } catch (err) {
+        console.error("chat_message persistence error:", err.message);
+      }
+    });
+
+    socket.on("playlist_update", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      socket.to(roomId).emit("playlist_update", {
+        roomId,
+        items: Array.isArray(data.items) ? data.items.slice(0, MAX_PLAYLIST_ITEMS) : []
+      });
+    });
+
+    socket.on("annotation_created", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const annotationId = toPositiveIntegerOrNull(data.id);
+      if (!annotationId) return;
+
+      socket.to(roomId).emit("annotation_created", {
+        ...data,
+        id: annotationId,
+        roomId
+      });
+    });
+
+    socket.on("annotation_deleted", (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const annotationId = toPositiveIntegerOrNull(data.annotationId);
+      if (!annotationId) return;
+
+      socket.to(roomId).emit("annotation_deleted", {
+        roomId,
+        annotationId
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected:", socket.id);
+      for (const roomId of Object.keys(roomsData)) {
+        removeSocketFromRoom(roomId, socket.id);
+      }
+    });
+  });
+};
