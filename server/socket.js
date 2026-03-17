@@ -1,8 +1,10 @@
 const historyService = require("./services/historyService");
 const messageService = require("./services/messageService");
+const Annotation = require("./models/annotationModel");
 
 const MAX_CHAT_MESSAGE_LENGTH = 1000;
 const MAX_PLAYLIST_ITEMS = 200;
+const MAX_ANNOTATION_SYNC_LIMIT = 1000;
 
 const normalizeRoomId = (value) => {
   const roomId = typeof value === "object" && value !== null ? value.roomId : value;
@@ -24,6 +26,18 @@ const toSafeText = (value, maxLen = 255) => {
   const safe = String(value ?? "").trim();
   if (!safe) return "";
   return safe.length > maxLen ? safe.slice(0, maxLen) : safe;
+};
+
+const toSafeNonNegativeInteger = (value, fallback = 0) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return fallback;
+  return parsed;
+};
+
+const toSafeLimit = (value, fallback = 500) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.max(Math.floor(parsed), 1), MAX_ANNOTATION_SYNC_LIMIT);
 };
 
 module.exports = function socketHandler(io) {
@@ -84,6 +98,44 @@ module.exports = function socketHandler(io) {
       }
 
       emitRoomState(roomId);
+
+      // Optional snapshot sync for clients that join/reconnect with context.
+      if (typeof rawRoomId === "object" && rawRoomId !== null) {
+        const videoUrl = toSafeText(rawRoomId.videoUrl, 2048);
+        if (videoUrl) {
+          const limit = toSafeLimit(rawRoomId.limit, 500);
+          const offset = toSafeNonNegativeInteger(rawRoomId.offset, 0);
+          const cursor = toPositiveIntegerOrNull(rawRoomId.cursor ?? rawRoomId.cursorId);
+
+          Annotation.listByRoomAndVideoFiltered({
+            roomId,
+            videoUrl,
+            limit,
+            offset,
+            cursor
+          })
+            .then((result) => {
+              socket.emit("annotation_sync_snapshot", {
+                roomId,
+                videoUrl,
+                items: result.rows,
+                meta: {
+                  limit,
+                  offset,
+                  count: result.rows.length,
+                  cursor: cursor || null
+                }
+              });
+            })
+            .catch((err) => {
+              socket.emit("annotation_sync_error", {
+                roomId,
+                message: "Unable to synchronize annotations.",
+                details: err.message
+              });
+            });
+        }
+      }
     });
 
     socket.on("leave_room", (rawRoomId) => {
@@ -290,6 +342,62 @@ module.exports = function socketHandler(io) {
         roomId,
         annotationId
       });
+    });
+
+    socket.on("annotation_sync_request", async (data) => {
+      if (!data || typeof data !== "object") return;
+      const roomId = normalizeRoomId(data.roomId);
+      if (!canUseRoom(socket, roomId)) return;
+
+      const videoUrl = toSafeText(data.videoUrl, 2048);
+      if (!videoUrl) {
+        socket.emit("annotation_sync_error", {
+          roomId,
+          message: "videoUrl is required for annotation sync."
+        });
+        return;
+      }
+
+      const limit = toSafeLimit(data.limit, 500);
+      const offset = toSafeNonNegativeInteger(data.offset, 0);
+      const cursor = toPositiveIntegerOrNull(data.cursor ?? data.cursorId);
+      const authorId = toPositiveIntegerOrNull(data.authorId);
+      const fromSec = data.fromSec === undefined ? null : toSafeNumberOrNull(data.fromSec);
+      const toSec = data.toSec === undefined ? null : toSafeNumberOrNull(data.toSec);
+
+      try {
+        const result = await Annotation.listByRoomAndVideoFiltered({
+          roomId,
+          videoUrl,
+          limit,
+          offset,
+          cursor,
+          authorId,
+          fromSec,
+          toSec
+        });
+
+        socket.emit("annotation_sync_snapshot", {
+          roomId,
+          videoUrl,
+          items: result.rows,
+          meta: {
+            limit,
+            offset,
+            count: result.rows.length,
+            cursor: cursor || null,
+            authorId: authorId || null,
+            fromSec,
+            toSec
+          }
+        });
+      } catch (err) {
+        socket.emit("annotation_sync_error", {
+          roomId,
+          message: "Unable to synchronize annotations.",
+          details: err.message
+        });
+      }
     });
 
     socket.on("disconnect", () => {
