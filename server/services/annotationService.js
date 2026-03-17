@@ -138,6 +138,52 @@ const annotationService = {
 
     const deleted = await Annotation.deleteByIdInRoom(safeAnnotationId, safeRoomId);
     return deleted.rows[0] || null;
+  },
+
+  async update({ roomId, annotationId, userId, content, timecodeSec }) {
+    const safeRoomId = toPositiveInteger(roomId, "roomId");
+    const safeAnnotationId = toPositiveInteger(annotationId, "annotationId");
+    const safeUserId = toPositiveInteger(userId, "userId");
+
+    const room = await ensureRoomAccess(safeRoomId, safeUserId);
+    const found = await Annotation.getById(safeAnnotationId);
+    const annotation = found.rows[0];
+
+    if (!annotation || Number(annotation.room_id) !== safeRoomId) {
+      throw createError("Annotation introuvable", 404);
+    }
+
+    const isOwner = Number(room.owner_id) === safeUserId;
+    const isAuthor = Number(annotation.user_id) === safeUserId;
+    if (!isOwner && !isAuthor) {
+      throw createError("Modification non autorisee", 403);
+    }
+
+    if (content === undefined && timecodeSec === undefined) {
+      throw createError("Aucune donnee a modifier", 400);
+    }
+
+    const nextContent =
+      content === undefined ? String(annotation.content || "") : normalizeContent(content);
+    const nextTimecode =
+      timecodeSec === undefined
+        ? normalizeTimecode(annotation.timecode_sec)
+        : normalizeTimecode(timecodeSec);
+
+    const updated = await Annotation.updateByIdInRoom({
+      id: safeAnnotationId,
+      roomId: safeRoomId,
+      content: nextContent,
+      timecodeSec: nextTimecode
+    });
+
+    const row = updated.rows[0];
+    if (!row) {
+      throw createError("Annotation introuvable", 404);
+    }
+
+    const withUser = await Annotation.getById(safeAnnotationId);
+    return withUser.rows[0] || row;
   }
 };
 

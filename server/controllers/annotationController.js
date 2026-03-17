@@ -54,3 +54,20 @@ exports.deleteAnnotation = async (req, res) => {
     handleError(res, err);
   }
 };
+
+exports.updateAnnotation = async (req, res) => {
+  const { roomId, annotationId } = req.params;
+  const { content, timecodeSec } = req.body;
+  try {
+    const updated = await annotationService.update({
+      roomId,
+      annotationId,
+      userId: req.userId,
+      content,
+      timecodeSec
+    });
+    res.json(updated);
+  } catch (err) {
+    handleError(res, err, 400);
+  }
+};

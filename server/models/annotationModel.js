@@ -58,6 +58,18 @@ const Annotation = {
       "DELETE FROM annotations WHERE id = $1 AND room_id = $2 RETURNING *",
       [id, roomId]
     );
+  },
+
+  updateByIdInRoom({ id, roomId, content, timecodeSec }) {
+    return db.query(
+      `UPDATE annotations
+       SET content = $1,
+           timecode_sec = $2,
+           updated_at = NOW()
+       WHERE id = $3 AND room_id = $4
+       RETURNING *`,
+      [content, timecodeSec, id, roomId]
+    );
   }
 };
 

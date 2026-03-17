@@ -7,6 +7,7 @@ router.use(auth);
 
 router.get("/:roomId", annotationController.getAnnotationsByRoom);
 router.post("/:roomId", annotationController.createAnnotation);
+router.patch("/:roomId/:annotationId", annotationController.updateAnnotation);
 router.delete("/:roomId/:annotationId", annotationController.deleteAnnotation);
 
 module.exports = router;
