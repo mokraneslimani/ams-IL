@@ -63,6 +63,39 @@ const normalizeLimit = (limit) => {
   return Math.min(Math.max(Math.floor(parsed), MIN_LIMIT), MAX_LIMIT);
 };
 
+const normalizeOffset = (offset) => {
+  if (offset === undefined || offset === null || offset === "") {
+    return 0;
+  }
+  const parsed = Number(offset);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw createError("offset invalide", 400);
+  }
+  return parsed;
+};
+
+const normalizeOptionalPositiveInteger = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw createError(`${fieldName} invalide`, 400);
+  }
+  return parsed;
+};
+
+const normalizeOptionalTimecode = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw createError(`${fieldName} invalide`, 400);
+  }
+  return Math.round(parsed * 1000) / 1000;
+};
+
 const ensureRoomAccess = async (roomId, userId) => {
   const room = await roomService.getRoomByIdWithAccess(roomId, userId);
   if (!room) {
@@ -72,14 +105,42 @@ const ensureRoomAccess = async (roomId, userId) => {
 };
 
 const annotationService = {
-  async listByRoomAndVideo({ roomId, userId, videoUrl, limit }) {
+  async listByRoomAndVideo({
+    roomId,
+    userId,
+    videoUrl,
+    limit,
+    offset,
+    authorId,
+    fromSec,
+    toSec,
+    cursor
+  }) {
     const safeRoomId = toPositiveInteger(roomId, "roomId");
     const safeUserId = toPositiveInteger(userId, "userId");
     const safeVideoUrl = normalizeVideoUrl(videoUrl);
     const safeLimit = normalizeLimit(limit);
+    const safeOffset = normalizeOffset(offset);
+    const safeAuthorId = normalizeOptionalPositiveInteger(authorId, "authorId");
+    const safeFromSec = normalizeOptionalTimecode(fromSec, "fromSec");
+    const safeToSec = normalizeOptionalTimecode(toSec, "toSec");
+    const safeCursor = normalizeOptionalPositiveInteger(cursor, "cursor");
+
+    if (safeFromSec !== null && safeToSec !== null && safeFromSec > safeToSec) {
+      throw createError("fromSec doit etre inferieur ou egal a toSec", 400);
+    }
 
     await ensureRoomAccess(safeRoomId, safeUserId);
-    const result = await Annotation.listByRoomAndVideo(safeRoomId, safeVideoUrl, safeLimit);
+    const result = await Annotation.listByRoomAndVideoFiltered({
+      roomId: safeRoomId,
+      videoUrl: safeVideoUrl,
+      limit: safeLimit,
+      offset: safeOffset,
+      authorId: safeAuthorId,
+      fromSec: safeFromSec,
+      toSec: safeToSec,
+      cursor: safeCursor
+    });
     return result.rows;
   },
 

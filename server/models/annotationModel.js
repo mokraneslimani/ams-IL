@@ -16,12 +16,55 @@ const Annotation = {
   },
 
   listByRoomAndVideo(roomId, videoUrl, limit = 500) {
+    return this.listByRoomAndVideoFiltered({
+      roomId,
+      videoUrl,
+      limit
+    });
+  },
+
+  listByRoomAndVideoFiltered({
+    roomId,
+    videoUrl,
+    limit = 500,
+    offset = 0,
+    authorId = null,
+    fromSec = null,
+    toSec = null,
+    cursor = null
+  }) {
+    const clauses = ["a.room_id = $1", "a.video_url = $2"];
+    const values = [roomId, videoUrl];
+
+    if (authorId !== null) {
+      values.push(authorId);
+      clauses.push(`a.user_id = $${values.length}`);
+    }
+    if (fromSec !== null) {
+      values.push(fromSec);
+      clauses.push(`a.timecode_sec >= $${values.length}`);
+    }
+    if (toSec !== null) {
+      values.push(toSec);
+      clauses.push(`a.timecode_sec <= $${values.length}`);
+    }
+    if (cursor !== null) {
+      values.push(cursor);
+      clauses.push(`a.id > $${values.length}`);
+    }
+
+    values.push(limit);
+    const limitParam = values.length;
+    values.push(offset);
+    const offsetParam = values.length;
+
     return db.query(
       `${BASE_SELECT}
-       WHERE a.room_id = $1 AND a.video_url = $2
-       ORDER BY a.timecode_sec ASC, a.created_at ASC
-       LIMIT $3`,
-      [roomId, videoUrl, limit]
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY a.timecode_sec ASC, a.created_at ASC, a.id ASC
+       LIMIT $${limitParam}
+       OFFSET $${offsetParam}`,
+      values
     );
   },
 

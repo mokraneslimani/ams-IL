@@ -7,13 +7,18 @@ const handleError = (res, err, fallbackStatus = 500) => {
 
 exports.getAnnotationsByRoom = async (req, res) => {
   const { roomId } = req.params;
-  const { videoUrl, limit } = req.query;
+  const { videoUrl, limit, offset, authorId, fromSec, toSec, cursor, cursorId } = req.query;
   try {
     const annotations = await annotationService.listByRoomAndVideo({
       roomId,
       userId: req.userId,
       videoUrl,
-      limit
+      limit,
+      offset,
+      authorId,
+      fromSec,
+      toSec,
+      cursor: cursor || cursorId
     });
     res.json(annotations);
   } catch (err) {
